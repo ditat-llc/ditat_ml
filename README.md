@@ -3,6 +3,14 @@ ditat.io framework for deployment of machine learning models.
 
 For further information visit [ditat.io](https://ditat.io)
 
+## Installation
+```bash
+pip install git+https://github.com/ditat-llc/ditat_ml.git
+```
+The other option is to clone the repo and install it locally.
+```bash
+pip install -e ./ditat_ml
+```
 
 ## Usage
 
