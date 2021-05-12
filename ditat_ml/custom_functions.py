@@ -243,7 +243,7 @@ job_title_mapping = {
 		'function': 'Finance'
 	},
 	'Finance Associate': {
-		'seniority': 2,
+		'seniority': 3,
 		'function': 'Finance'
 	},
 	'Finance Assistant': {
@@ -255,7 +255,7 @@ job_title_mapping = {
 		'function': 'Finance'
 	},
 	'Associate Treasurer': {
-		'seniority': 2,
+		'seniority': 3,
 		'function': 'Finance'
 	},
 	'Investment Accountant': {
@@ -271,7 +271,7 @@ job_title_mapping = {
 		'function': 'Investor Relations'
 	},
 	'Head of IR': {
-		'seniority': 8,
+		'seniority': 7,
 		'function': 'Investor Relations'
 	},
 	'Managing Director, Investor Relations': {
@@ -341,27 +341,27 @@ job_title_mapping = {
 
 	'Partner': {
 		'seniority': 9,
-		'function': 'Firm Leader'
+		'function': 'Deal Team'
 	},
 	'Vice President': {
-		'seniority': 5,
-		'function': 'Firm Leader'
+		'seniority': 6,
+		'function': 'Deal Team'
 	},
 	'Senior Vice President': {
 		'seniority': 6,
 		'function': 'Firm Leader'
 	},
 	'Director': {
-		'seniority': 8,
-		'function': 'Firm Leader'
+		'seniority': 7,
+		'function': 'Deal Team'
 	},
 	'Principal': {
-		'seniority': 8,
-		'function': 'Firm Leader'
+		'seniority': 7,
+		'function': 'Deal Team'
 	},
 	'Associate': {
 		'seniority': 4,
-		'function': 'Other'
+		'function': 'Deal Team'
 	},
 	'Co': {
 		'seniority': 8,
@@ -381,23 +381,23 @@ job_title_mapping = {
 	},
 	'Operating Partner': {
 		'seniority': 8,
-		'function': 'Firm Leader'
+		'function': 'Operations'
 	},
 	'VP': {
-		'seniority': 5,
-		'function': 'Firm Leader'
+		'seniority': 6,
+		'function': 'Deal Team'
 	},
 	'Executive Vice President': {
-		'seniority': 6,
+		'seniority': 7,
 		'function': 'Firm Leader'
 	},
 	'Senior Associate': {
 		'seniority': 5,
-		'function': 'Other'
+		'function': 'Deal Team'
 	},
 	'Venture Partner': {
 		'seniority': 8,
-		'function': 'Firm Leader'
+		'function': 'Deal Team'
 	},
 	'Human Resources': {
 		'seniority': 3,
@@ -405,11 +405,11 @@ job_title_mapping = {
 	},
 	'Analyst': {
 		'seniority': 3,
-		'function': 'Other'
+		'function': 'Deal Team'
 	},
 	'Manager': {
 		'seniority': 8,
-		'function': 'Firm Leader'
+		'function': 'Deal Team'
 	},
 	'Owner': {
 		'seniority': 10,
@@ -421,21 +421,153 @@ job_title_mapping = {
 	},
 	'Investments': {
 		'seniority': 4,
-		'function': 'Finance'
+		'function': 'Deal Team'
 	},
 	'Co,Founder': {
 		'seniority': 10,
 		'function': 'Firm Leader'
 	},
+	'SVP': {
+		'seniority': 8,
+		'function': 'Deal Team'
+	},
+	'Business Development': {
+		'seniority': 4,
+		'function': 'Deal Team'
+	},
+	'Private Equity': {
+		'seniority': 4,
+		'function': 'Deal Team'
+	},
+	'Senior Advisor': {
+		'seniority': 7,
+		'function': 'Other'
+	},
+	'Board Member': {
+		'seniority': 9,
+		'function': 'Firm Leader'
+	},
+	'EA': {
+		'seniority': 3,
+		'function': 'Operations'
+	},
+	'Fundraising': {
+		'seniority': 4,
+		'function': 'Investor Relations'
+	},
+	'Consultant': {
+		'seniority': 4,
+		'function': 'Other'
+	},
+	'Senior Analyst': {
+		'seniority': 4,
+		'function': 'Deal Team'
+	},
+	'Head of Business Development': {
+		'seniority': 8,
+		'function': 'Deal Team'
+	},
+	'Secretary': {
+		'seniority': 3,
+		'function': 'Operations'
+	},
+	'Growth Equity Investor': {
+		'seniority': 5,
+		'function': 'Deal Team'
+	},
+	'Development': {
+		'seniority': 4,
+		'function': 'Deal Team'
+	},
+	'Information Technology': {
+		'seniority': 4,
+		'function': 'Technology'
+	},
+	'Vc': {
+		'seniority': 5,
+		'function': 'Deal Team'
+	},
+	'Investment Professional': {
+		'seniority': 4,
+		'function': 'Deal Team'
+	},
+	'Assistant Vice President': {
+		'seniority': 5,
+		'function': 'Deal Team'
+	},
+	'Human Capital': {
+		'seniority': 4,
+		'function': 'Other'
+	},
+	'Chief Financial': {
+		'seniority': 8,
+		'function': 'Finance'
+	},
+	'EVP': {
+		'seniority': 8,
+		'function': 'Firm Leader'
+	},
+	'Trustee': {
+		'seniority': 7,
+		'function': 'Other'
+	},
+	'Media': {
+		'seniority': 4,
+		'function': 'Other'
+	},
+	'Telecommunications': {
+		'seniority': 3,
+		'function': 'Technology'
+	},
+	'Investment Team': {
+		'seniority': 4,
+		'function': 'Deal Team'
+	},
+	'Senior Principal': {
+		'seniority': 8,
+		'function': 'Firm Leader'
+	},
+	'Client Services': {
+		'seniority': 3,
+		'function': 'Investor Relations'
+	},
+	'Client Service Manager': {
+		'seniority': 5,
+		'function': 'Investor Relations'
+	},
+	'Team Member': {
+		'seniority': 3,
+		'function': 'Deal Team'
+	},
+	'Client Service': {
+		'seniority': 3,
+		'function': 'Investor Relations'
+	},
+	'Senior Managing Partner': {
+		'seniority': 8,
+		'function': 'Deal Team'
+	},
+	'Venture Capital': {
+		'seniority': 7,
+		'function': 'Deal Team'
+	},
+	'Investment Committee': {
+		'seniority': 6,
+		'function': 'Deal Team'
+	},
+	'Business Analyst': {
+		'seniority': 3,
+		'function': 'Deal Team'
+	},
 }
 
 persona_synonyms = {
-	'Finance': ['finance', 'financial', 'investment', 'investments', 'equity', 'portfolio', 'treasury', 'accounting', 'market', 'markets', 'tax', 'investor'],
+	'Finance': ['finance', 'financial', 'equity', 'portfolio', 'treasury', 'accounting', 'market', 'markets', 'tax', 'investor'],
 	'Investor Relations': ['investor relations', 'ir', 'marketing', 'relationship', 'relationships', 'communications', 'communication', 'sales', 'account'],
 	'Operations': ['operations', 'operating', 'administration', 'compliance', 'office', 'administrative'],
-	'Firm Leader': ['executive', 'general', 'associate', 'strategy'],
+	'Firm Leader': ['executive', 'general', 'strategy'],
 	'Technology': ['technology', 'it', 'software'],
-	'Deal Team': [],
+	'Deal Team': ['associate','investment','investments'],
 	'Other': ['research', 'legal']
 }
 
