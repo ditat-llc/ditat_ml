@@ -320,8 +320,6 @@ class Pipeline:
             'function': function
         })
 
-
-
     def scale(self, scaler=MinMaxScaler()):
         '''
         Depending on self_deployment, we scaled self.X_train and self.X_test
@@ -384,7 +382,7 @@ class Pipeline:
         if 'get_params' in dir(self._model):
             self._information['model_params'] = self._model.get_params()
 
-    def train(self, show_plots=True, corr_th=0.8, scoring='roc_auc'):
+    def train(self, show_plots=True, corr_th=0.8, scoring='roc_auc', verbose=True):
         '''
         Args:
             - show_plots
@@ -394,7 +392,7 @@ class Pipeline:
 
         self.model.fit(self.X_train_scaled, self.y_train)
 
-        self._results(show_plots, corr_th=corr_th, scoring=scoring)
+        self._results(show_plots, corr_th=corr_th, scoring=scoring, verbose=verbose)
 
     def _results(
         self,
@@ -438,33 +436,33 @@ class Pipeline:
             test_results['test_predict'] = self.model.predict(self.X_test_scaled)
             test_results['y_test'] = self.y_test
 
-            train_score = self.model.score(self.X_train_scaled, self.y_train)
-            test_score =self.model.score(self.X_test_scaled, self.y_test)
+            self.train_score = self.model.score(self.X_train_scaled, self.y_train)
+            self.test_score =self.model.score(self.X_test_scaled, self.y_test)
             
-            print('Score Train', round(train_score, 4))
-            print('Score Test', round(test_score, 4))
+            print('Score Train', round(self.train_score, 4))
+            print('Score Test', round(self.test_score, 4))
         
             if 'predict_proba' in dir(self.model):
                 train_results['train_predict_proba'] = self.model.predict_proba(self.X_train_scaled)[:, 1]
                 test_results['test_predict_proba'] = self.model.predict_proba(self.X_test_scaled)[:, 1]
 
-                ras_train = roc_auc_score(self.y_train, train_results['train_predict_proba'])
-                ras_test = roc_auc_score(self.y_test, test_results['test_predict_proba'])
+                self.ras_train = roc_auc_score(self.y_train, train_results['train_predict_proba'])
+                self.ras_test = roc_auc_score(self.y_test, test_results['test_predict_proba'])
 
-                print(f"Roc Auc score Training: {round(ras_train, 4)}")
-                print(f"Roc Auc score Testing: {round(ras_test, 4)}")
+                print(f"Roc Auc score Training: {round(self.ras_train, 4)}")
+                print(f"Roc Auc score Testing: {round(self.ras_test, 4)}")
 
         else:
             full_results['y'] = self.y
             full_results['predict'] = self.model.predict(self.X_scaled)
 
-            full_score = self.model.score(self.X_scaled, self.y)
-            print('Score Full', round(full_score, 4))
+            self.full_score = self.model.score(self.X_scaled, self.y)
+            print('Score Full', round(self.full_score, 4))
 
             if 'predict_proba' in dir(self.model):
                 full_results['predict_proba'] = self.model.predict_proba(self.X_scaled)[:, 1]
-                ras_full = roc_auc_score(self.y, full_results['predict_proba'])
-                print(f"Roc Auc score Full: {round(ras_full, 4)}")
+                self.ras_full = roc_auc_score(self.y, full_results['predict_proba'])
+                print(f"Roc Auc score Full: {round(self.ras_full, 4)}")
 
             full_results.to_csv(os.path.join(self.model_path, 'full_results.csv'), index=False)
 
