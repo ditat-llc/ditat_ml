@@ -146,12 +146,14 @@ class Pipeline:
 
             self.y = self.df[self.y_columns]
 
-    def split(self,test_size: float=0.05):
+    def split(self, test_size: float=0.05, stratify=False):
         '''
         Simple splitter for train and test data.
 
         Args:
-            - test_size (float, default=0.10)
+            - test_size (float, default=0.05)
+            - stratify (bool, default=False): Keep class imbalance for
+                splitting.
 
         Returns:
             - None
@@ -164,7 +166,7 @@ class Pipeline:
             train_size=None,
             random_state=type(self).RANDOM_STATE,
             shuffle=True,
-            stratify=None
+            stratify=self.y if stratify else None
         )
         self._split = True
 
@@ -402,7 +404,8 @@ class Pipeline:
         corr_th=0.8,
         verbose=True,
         scoring='roc_auc',
-        cv=5
+        cv=5,
+        other_cols=None
         ):
         '''
 
@@ -464,6 +467,10 @@ class Pipeline:
                 self.ras_full = roc_auc_score(self.y, full_results['predict_proba'])
                 print(f"Roc Auc score Full: {round(self.ras_full, 4)}")
 
+            if other_cols and all(item in self.df.columns for item in other_cols):
+                for col in other_cols:
+                    full_results[col] = self.df[col]
+
             full_results.to_csv(os.path.join(self.model_path, 'full_results.csv'), index=False)
 
         utility_functions.find_high_corr(
@@ -487,7 +494,7 @@ class Pipeline:
             if not self._deployment:
                 plot1.show()
 
-    def deploy(self, name, directory='models', overwrite=False):
+    def deploy(self, name, directory='models', overwrite=False, other_cols=None):
         '''
         We train the model on the whole dataset once we have decided
         we are satified with the model performance. This will save the model
@@ -501,6 +508,8 @@ class Pipeline:
             - name (str): Name of your model. It will be save with name     # (not anymore)+ "_YYYYMMDD"
             - directory (str, default='models'): folder to use for creating the path.
             - overwrite (bool, default=False): Raise error if folder exists or overwrite.
+            - other_cols (list, default=None): Other columns in the original self.df
+                to include in the full_results.csv
 
         '''
         self._deployment = True
@@ -527,7 +536,7 @@ class Pipeline:
         self.scale()
         self.model.fit(self.X_scaled, self.y)
 
-        self._results()
+        self._results(other_cols=other_cols)
 
         dump(self.model, os.path.join(self.model_path, 'model.joblib'))
         dump(self.scaler, os.path.join(self.model_path, 'scaler.joblib'))
