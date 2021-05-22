@@ -9,8 +9,9 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+# from sklearn.model_selection import StratifiedKFold
 from sklearn.utils import class_weight
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, confusion_matrix
 
 from . import utility_functions
 
@@ -328,7 +329,7 @@ class Pipeline:
         OR self.X (predictions).
 
         Args:
-            - scaler (default="sklearn.preprocessing.StandardScaler")
+            - scaler (default="sklearn.preprocessing.MinMaxScaler")
 
         '''
         if self._deployment is True:
@@ -444,6 +445,11 @@ class Pipeline:
             
             print('Score Train', round(self.train_score, 4))
             print('Score Test', round(self.test_score, 4))
+
+            self.train_cm = confusion_matrix(self.y_train, train_results['train_predict'])
+            self.test_cm = confusion_matrix(self.y_test, test_results['test_predict'])
+            print('Train\n', self.train_cm)
+            print('Test\n', self.test_cm)
         
             if 'predict_proba' in dir(self.model):
                 train_results['train_predict_proba'] = self.model.predict_proba(self.X_train_scaled)[:, 1]
@@ -484,8 +490,8 @@ class Pipeline:
         if show_plots:
             plot1 = utility_functions.plot_learning_curve(
               estimator=self.model,
-              X=X_.sample(frac=1, random_state=1),
-              y=y_.sample(frac=1, random_state=1),
+              X=X_, #.sample(frac=1, random_state=1),
+              y=y_ ,#.sample(frac=1, random_state=1),
               scoring=scoring,
               estimator_name='estimator',
               cv=cv,
@@ -493,6 +499,13 @@ class Pipeline:
             )
             if not self._deployment:
                 plot1.show()
+
+    # def kfold_train(self, n_splits=5):
+    #     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=None)
+
+    #     for train_index, test_index in skf.split(self.X, self.y):
+    #         pass
+
 
     def deploy(self, name, directory='models', overwrite=False, other_cols=None):
         '''
@@ -519,7 +532,8 @@ class Pipeline:
 
         if overwrite and os.path.exists(self.model_path):
             for f in os.listdir(self.model_path):
-                os.remove(os.path.join(self.model_path, f))
+                if os.path.isdir(f):
+                    os.remove(os.path.join(self.model_path, f))
         else:
             os.makedirs(self.model_path)
 
@@ -544,7 +558,7 @@ class Pipeline:
         with open(os.path.join(self.model_path, 'information.json'), 'w') as file:
             json.dump(self._information, file)
 
-    def predict(self, path, model_name, save=True):
+    def predict(self, path, model_name, save=True, other_cols=None):
         '''
         *** For prediction ONLY ***
 
@@ -562,6 +576,8 @@ class Pipeline:
                 includes the _YYYYMMDD.
             - save (bool, default=True): Whether to save the prediction dataframe as
                 results.csv
+            - other_cols (list, default=None): Include other columns from the dataframe to
+                be present in the predictions
 
         '''
         self._deployment = True
@@ -584,6 +600,10 @@ class Pipeline:
 
         if 'predict_proba' in dir(self.model):
             results['predict_proba'] = self.model.predict_proba(self.X_scaled)[:, 1]
+
+        if other_cols and all(item in self.df.columns for item in other_cols):
+            for col in other_cols:
+                results[col] = self.df[col]
 
         if save is True:
             results.to_csv(os.path.join(self.model_path, 'results.csv'), index=False)

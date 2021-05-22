@@ -540,7 +540,7 @@ def plot_learning_curve(
         n_jobs=n_jobs,
         pre_dispatch='all',
         verbose=0,
-        shuffle=False,
+        shuffle=True,
         random_state=None,
         error_score=np.nan,
         return_times=False
