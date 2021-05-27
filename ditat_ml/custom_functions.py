@@ -568,7 +568,7 @@ persona_synonyms = {
 	'Firm Leader': ['executive', 'general', 'strategy'],
 	'Technology': ['technology', 'it', 'software'],
 	'Deal Team': ['associate','investment','investments'],
-	'Other': ['research', 'legal']
+	# 'Other': ['research', 'legal']
 }
 
 seniority_mapping = {

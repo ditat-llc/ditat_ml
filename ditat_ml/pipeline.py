@@ -147,12 +147,12 @@ class Pipeline:
 
             self.y = self.df[self.y_columns]
 
-    def split(self, test_size: float=0.05, stratify=False):
+    def split(self, test_size: float=0.10, stratify=False):
         '''
         Simple splitter for train and test data.
 
         Args:
-            - test_size (float, default=0.05)
+            - test_size (float, default=0.10)
             - stratify (bool, default=False): Keep class imbalance for
                 splitting.
 
@@ -376,6 +376,13 @@ class Pipeline:
                 y=self.y_train
             )
             self.class_weight_ = dict(zip(classes, class_weight_array))
+
+            # Fix for dtypes no json serializable
+            temp_dict = {}
+            keys_ = list(self.class_weight_.keys())
+            for key in keys_:
+                temp_dict[key.item()] = self.class_weight_.pop(key)
+            self.class_weight_ = temp_dict
             
             if 'class_weight' in dir(value):
                 value.class_weight = self.class_weight_
@@ -507,7 +514,14 @@ class Pipeline:
     #         pass
 
 
-    def deploy(self, name, directory='models', overwrite=False, other_cols=None):
+    def deploy(
+        self,
+        name,
+        directory='models',
+        overwrite=False,
+        other_cols=None,
+        save_plots=True
+        ):
         '''
         We train the model on the whole dataset once we have decided
         we are satified with the model performance. This will save the model
@@ -523,6 +537,8 @@ class Pipeline:
             - overwrite (bool, default=False): Raise error if folder exists or overwrite.
             - other_cols (list, default=None): Other columns in the original self.df
                 to include in the full_results.csv
+            - save_plots (bool, default=True): Similar tro training, whether you want to save
+                the learning curves.
 
         '''
         self._deployment = True
@@ -550,7 +566,7 @@ class Pipeline:
         self.scale()
         self.model.fit(self.X_scaled, self.y)
 
-        self._results(other_cols=other_cols)
+        self._results(other_cols=other_cols, show_plots=save_plots)
 
         dump(self.model, os.path.join(self.model_path, 'model.joblib'))
         dump(self.scaler, os.path.join(self.model_path, 'scaler.joblib'))
