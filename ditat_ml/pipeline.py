@@ -9,7 +9,6 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-# from sklearn.model_selection import StratifiedKFold
 from sklearn.utils import class_weight
 from sklearn.metrics import roc_auc_score, confusion_matrix
 
@@ -85,6 +84,7 @@ class Pipeline:
         self._preprocessed = False
         self._split = False
         self._scale = False
+        self._calculate_class_weights = True
 
 
     def load_data(self, path):
@@ -368,31 +368,38 @@ class Pipeline:
             if 'random_state' in dir(value):
                 value.random_state = type(self).RANDOM_STATE
 
-            # Recheck this part.
-            classes = np.unique(self.y_train)
-            class_weight_array = class_weight.compute_class_weight(
-                class_weight='balanced',
-                classes=classes,
-                y=self.y_train
-            )
-            self.class_weight_ = dict(zip(classes, class_weight_array))
+            if self._calculate_class_weights:
+                # Recheck this part.
+                classes = np.unique(self.y_train)
+                class_weight_array = class_weight.compute_class_weight(
+                    class_weight='balanced',
+                    classes=classes,
+                    y=self.y_train
+                )
+                self.class_weight_ = dict(zip(classes, class_weight_array))
 
-            # Fix for dtypes no json serializable
-            temp_dict = {}
-            keys_ = list(self.class_weight_.keys())
-            for key in keys_:
-                temp_dict[key.item()] = self.class_weight_.pop(key)
-            self.class_weight_ = temp_dict
-            
-            if 'class_weight' in dir(value):
-                value.class_weight = self.class_weight_
+                # Fix for dtypes no json serializable
+                temp_dict = {}
+                keys_ = list(self.class_weight_.keys())
+                for key in keys_:
+                    temp_dict[key.item()] = self.class_weight_.pop(key)
+                self.class_weight_ = temp_dict
+                
+                if 'class_weight' in dir(value):
+                    value.class_weight = self.class_weight_
 
         self._model = value
 
         if 'get_params' in dir(self._model):
             self._information['model_params'] = self._model.get_params()
 
-    def train(self, show_plots=True, corr_th=0.8, scoring='roc_auc', verbose=True):
+    def train(
+        self,
+        show_plots=True,
+        corr_th=0.8,
+        scoring='roc_auc',
+        verbose=True
+        ):
         '''
         Args:
             - show_plots
@@ -497,8 +504,8 @@ class Pipeline:
         if show_plots:
             plot1 = utility_functions.plot_learning_curve(
               estimator=self.model,
-              X=X_, #.sample(frac=1, random_state=1),
-              y=y_ ,#.sample(frac=1, random_state=1),
+              X=X_,
+              y=y_,
               scoring=scoring,
               estimator_name='estimator',
               cv=cv,
@@ -506,13 +513,6 @@ class Pipeline:
             )
             if not self._deployment:
                 plot1.show()
-
-    # def kfold_train(self, n_splits=5):
-    #     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=None)
-
-    #     for train_index, test_index in skf.split(self.X, self.y):
-    #         pass
-
 
     def deploy(
         self,

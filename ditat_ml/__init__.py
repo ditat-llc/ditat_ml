@@ -23,5 +23,10 @@ of low level utilty_functions and the high level Pipeline
 from .pipeline import Pipeline
 
 
+'''
+Persona class
+'''
+from .persona import Persona
+
 '''Others'''
-from .custom_functions import *
+# from .custom_functions import *
