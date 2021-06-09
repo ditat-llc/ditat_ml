@@ -81,6 +81,11 @@ class Pipeline:
         self._information = {'apply_X': []}
         
         # Other flags
+        
+        # This flag is used for predictions is extra self.df
+        # manipulation is needed and done manually.
+        self._data_loaded = False
+        
         self._preprocessed = False
         self._split = False
         self._scale = False
@@ -101,8 +106,10 @@ class Pipeline:
         Returns:
             - None
         '''
+
         df = pd.read_csv(filepath_or_buffer=path, nrows=self.nrows)
         self.df = df
+        self._data_loaded = True
 
     def load_X_y(
         self,
@@ -548,7 +555,7 @@ class Pipeline:
 
         if overwrite and os.path.exists(self.model_path):
             for f in os.listdir(self.model_path):
-                if os.path.isdir(f):
+                if os.path.isdir(f) and f != '__pycache__':
                     os.remove(os.path.join(self.model_path, f))
         else:
             os.makedirs(self.model_path)
@@ -598,7 +605,9 @@ class Pipeline:
         '''
         self._deployment = True
 
-        self.load_data(path)
+        if self._data_loaded is False:
+            self.load_data(path)
+
         self.load_model(model_name)
         self.load_X_y()
 
