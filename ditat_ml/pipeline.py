@@ -581,7 +581,7 @@ class Pipeline:
         with open(os.path.join(self.model_path, 'information.json'), 'w') as file:
             json.dump(self._information, file)
 
-    def predict(self, path, model_name, save=True, other_cols=None):
+    def predict(self, path=None, model_name, save=True, other_cols=None):
         '''
         *** For prediction ONLY ***
 
@@ -606,6 +606,9 @@ class Pipeline:
         self._deployment = True
 
         if self._data_loaded is False:
+            if path is None:
+                raise ValueError('You have to provide a path or self.load_data() to predict.')
+
             self.load_data(path)
 
         self.load_model(model_name)
