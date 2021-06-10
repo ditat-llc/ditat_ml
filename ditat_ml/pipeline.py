@@ -581,7 +581,7 @@ class Pipeline:
         with open(os.path.join(self.model_path, 'information.json'), 'w') as file:
             json.dump(self._information, file)
 
-    def predict(self, path=None, model_name, save=True, other_cols=None):
+    def predict(self, model_name, path=None,save=True, other_cols=None):
         '''
         *** For prediction ONLY ***
 
@@ -594,8 +594,8 @@ class Pipeline:
         6. Predict
 
         Args:
-            - path (str): Where the data for the predicting is.
             - model_name (str): Name of the model to load. It 
+            - path (str, default=None): Where the data for the predicting is.
                 includes the _YYYYMMDD.
             - save (bool, default=True): Whether to save the prediction dataframe as
                 results.csv
