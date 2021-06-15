@@ -2,7 +2,7 @@ import re
 
 import pandas as pd
 import numpy as np
-from fuzzywuzzy import process
+from fuzzywuzzy import process, fuzz
 
 from .utility_functions import (
 	dummies_with_options_and_limit,
@@ -60,7 +60,7 @@ class Persona:
 
 	@classmethod
 	# @time_it()
-	def process(cls, value):
+	def process(cls, value, fuzzywuzzy_usage=True):
 		'''
 		Process job title into
 			{'senioryty': int[1, 10], 'function': str[from PERSONA_SYNONYMS]}
@@ -196,13 +196,21 @@ class Persona:
 		# 	return resp
 
 		# WuzzyFuzzy
-		th = 40
-		seniority, s_value = process.extractOne(value, cls.SENIORITY_LIST)
-		persona, p_value = process.extractOne(value, cls.PERSONA_LIST)
+		# [fuzz.WRatio, fuzz.QRatio, fuzz.token_set_ratio, fuzz.token_sort_ratio, fuzz.partial_token_set_ratio, fuzz.partial_token_sort_ratio, fuzz.UWRatio, fuzz.UQRatio]
+		if fuzzywuzzy_usage:
+			th = 80
+			th2  = 70
+			scorer = fuzz.WRatio
 
-		if s_value >= th and p_value >= th:
-			return {'seniority': cls.SENIORITY_MAPPING[seniority], 'function': persona}
-
+			(s_name, s_value), (w, x) = process.extract(value, cls.SENIORITY_LIST, limit=2, scorer=scorer)
+			(p_name, p_value), (y, z) = process.extract(value, cls.PERSONA_LIST, limit=2, scorer=scorer)
+			if s_value >= th and p_value >= th and x <= th2 and z <= th2:
+				result = {'seniority': cls.SENIORITY_MAPPING[s_name], 'function': p_name}
+				# print(value, '|', s_name, s_value, '|',  p_name, p_value, '|', result)
+				# print(w, x)
+				# print(y, z)
+				# print()
+				return result
 		return None
 
 	@classmethod
