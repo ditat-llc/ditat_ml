@@ -2,6 +2,7 @@ import re
 
 import pandas as pd
 import numpy as np
+from fuzzywuzzy import process
 
 from .utility_functions import (
 	dummies_with_options_and_limit,
@@ -51,10 +52,14 @@ class Persona:
 		'\+': ','
 	}
 
+	SENIORITY_LIST = list(SENIORITY_MAPPING.keys())
+	PERSONA_LIST = list(PERSONA_SYNONYMS.keys())
+	
 	def __init__(self):
 		pass
 
 	@classmethod
+	# @time_it()
 	def process(cls, value):
 		'''
 		Process job title into
@@ -164,6 +169,39 @@ class Persona:
 		
 		if temp_function and temp_seniority:
 			return {'seniority': temp_seniority, 'function': temp_function}
+
+
+		# # PolyFuzzy Cases		
+		# cls.polyfuzz_model.match([value], cls.SENIORITY_LIST)
+		# s_df = cls.polyfuzz_model.get_matches()
+
+		# cls.polyfuzz_model.match([value], cls.PERSONA_LIST)
+		# p_df = cls.polyfuzz_model.get_matches()
+
+		# df = pd.merge(s_df, p_df, on='From', how='left')
+		# df.rename(columns={
+		# 		'To_x': 'seniority',
+		# 		'To_y': 'function',
+		# 		'Similarity_x': 's_score',
+		# 		'Similarity_y': 'f_score'
+		# 	}, inplace=True)
+		
+		# th = 0.3
+		# if df.s_score.iloc[0] >= th and df.f_score.iloc[0] >= th:
+		# 	resp =  {
+		# 		'seniority': cls.SENIORITY_MAPPING[df.seniority.iloc[0]] ,
+		# 		'function': df.function.iloc[0]
+		# 	}
+		# 	print(value, resp, df.seniority.iloc[0])
+		# 	return resp
+
+		# WuzzyFuzzy
+		th = 40
+		seniority, s_value = process.extractOne(value, cls.SENIORITY_LIST)
+		persona, p_value = process.extractOne(value, cls.PERSONA_LIST)
+
+		if s_value >= th and p_value >= th:
+			return {'seniority': cls.SENIORITY_MAPPING[seniority], 'function': persona}
 
 		return None
 
