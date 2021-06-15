@@ -21,6 +21,7 @@ class Persona:
 		'Firm Leader': ['executive', 'general', 'strategy'],
 		'Technology': ['technology', 'it', 'software'],
 		'Deal Team': ['associate','investment','investments'],
+		'Business Development': ['business development'],
 		# 'Deal Team': ['research', 'legal']
 	}
 
