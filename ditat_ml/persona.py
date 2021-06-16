@@ -109,7 +109,9 @@ class Persona:
 					temp_function = persona
 					break
 			seniority = 10 if temp_function == 'executive' else 8
-			return {'seniority': seniority, 'function': temp_function}
+			temp_function = temp_function or 'Deal Team'
+			if seniority and temp_function:
+				return {'seniority': seniority, 'function': temp_function}
 
 		###########################
 		# II. "Function seniority". 2-word combination like "Finance Manager" (Function Seniority)
@@ -184,36 +186,10 @@ class Persona:
 			s_name, s_value = process.extractOne(value, type(self).SENIORITY_LIST, scorer=scorer)
 			p_name, p_value = process.extractOne(value, type(self).PERSONA_LIST, scorer=scorer)
 
-
 			if s_value >= th and p_value >= th:
-				result = {'seniority': cls.SENIORITY_MAPPING[s_name], 'function': p_name}
+				result = {'seniority': type(self).SENIORITY_MAPPING[s_name], 'function': p_name}
 
 		return None
-		# # PolyFuzzy Cases		
-		# cls.polyfuzz_model.match([value], cls.SENIORITY_LIST)
-		# s_df = cls.polyfuzz_model.get_matches()
-
-		# cls.polyfuzz_model.match([value], cls.PERSONA_LIST)
-		# p_df = cls.polyfuzz_model.get_matches()
-
-		# df = pd.merge(s_df, p_df, on='From', how='left')
-		# df.rename(columns={
-		# 		'To_x': 'seniority',
-		# 		'To_y': 'function',
-		# 		'Similarity_x': 's_score',
-		# 		'Similarity_y': 'f_score'
-		# 	}, inplace=True)
-		
-		# th = 0.3
-		# if df.s_score.iloc[0] >= th and df.f_score.iloc[0] >= th:
-		# 	resp =  {
-		# 		'seniority': cls.SENIORITY_MAPPING[df.seniority.iloc[0]] ,
-		# 		'function': df.function.iloc[0]
-		# 	}
-		# 	print(value, resp, df.seniority.iloc[0])
-		# 	return resp
-
-		# WuzzyFuzzy
 
 	# @time_it()
 	def process(
@@ -243,6 +219,7 @@ class Persona:
 		if not value or not isinstance(value, str) or len(value) < 2:
 			return None
 
+		# Some exceptions
 		value  = value.replace('Co-', 'Co ')
 
 		for k, v in type(self).REPLACEMENT_MAPPING_SYMBOLS.items():
@@ -258,7 +235,6 @@ class Persona:
 		values = ' '.join(values)
 		values = values.split(',')
 		values = [x.strip() for x in values if x]
-
 
 		self.printif(values)
 		results = []
