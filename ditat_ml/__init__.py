@@ -27,6 +27,3 @@ from .pipeline import Pipeline
 Persona class
 '''
 from .persona import Persona
-
-'''Others'''
-# from .custom_functions import *

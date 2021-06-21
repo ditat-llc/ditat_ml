@@ -334,7 +334,7 @@ class Persona:
 		return result
 
 
-	def process_dataframe(self, dataframe, column):
+	def process_dataframe(self, dataframe, column, drop=True):
 		'''
 		Convenient method to self.process() a column in a dataframe
 		'''
@@ -343,6 +343,8 @@ class Persona:
 		dataframe['seniority'] = dataframe['process'].apply(lambda x: x['seniority'] if x else x)
 		dataframe['function'] = dataframe['process'].apply(lambda x: x['function'] if x else x)
 		dataframe.drop('process', axis=1, inplace=True)
+		if drop:
+			dataframe.drop(column, axis=1, inplace=True)
 		return dataframe
 
 
