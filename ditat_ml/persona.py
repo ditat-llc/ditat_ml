@@ -21,8 +21,7 @@ class Persona:
 		'Firm Leader': ['executive', 'general', 'strategy'],
 		'Technology': ['technology', 'it', 'software'],
 		'Deal Team': ['associate','investment','investments'],
-		'Business Development': ['business development'],
-		# 'Deal Team': ['research', 'legal']
+		'Business Development': ['business development']
 	}
 
 	SENIORITY_MAPPING = {
@@ -36,7 +35,6 @@ class Persona:
 		'analyst': 3,
 		'assistant': 2,
 		'intern': 1,
-		'default_': 3,
 		'administrator': 4,
 		'vp': 5,
 		'vice president': 5,
@@ -44,6 +42,9 @@ class Persona:
 		'chairman': 10,
 		'management': 8
 	}
+
+	DEFAULT_SENIORITY = 3
+	DEFAULT_PERSONA = 'Deal Team'
 
 	REPLACEMENT_MAPPING_SYMBOLS = {
 		'&': ',',
@@ -60,7 +61,9 @@ class Persona:
 		mapping: dict=None,
 		persona_mapping: dict=None,
 		seniority_mapping: dict=None,
-		combine_mappings: bool=False
+		combine_mappings: bool=False,
+		default_persona: str=None,
+		default_seniority: int=None
 		):
 		'''
 		'''
@@ -68,6 +71,9 @@ class Persona:
 		self.mapping = mapping
 		self.seniority_mapping = seniority_mapping
 		self.persona_mapping = persona_mapping
+
+		self.default_seniority = type(self).DEFAULT_SENIORITY if default_seniority is None else default_seniority
+		self.default_persona = type(self).DEFAULT_PERSONA if default_persona is None else default_persona
 
 		self.verbose = False
 
@@ -148,7 +154,7 @@ class Persona:
 
 		# Lower casing titles.
 		value = value.lower()
-		mapping = {i.lower(): j for i, j in type(self).MAPPING.items()}
+		mapping = {i.lower(): j for i, j in self.mapping.items()}
 
 		if value in mapping:
 			# Return if exists in MAPPING.
@@ -166,12 +172,13 @@ class Persona:
 				'i': 'Finance',
 				'm': 'Investor Relations',
 				'e': 'Firm Leader',
-				'c': 'Deal Team'
+				'c': self.default_persona
 			}
-			temp_function = last_word[1]
+			temp_function = temp_map.get(last_word[1])
 			# Arbitrary if CEO -> 10 else 8
 			seniority = 10 if temp_function == 'e' else 8
-			return {'seniority': seniority, 'function': temp_map[temp_function]}
+			if seniority and temp_function:
+				return {'seniority': seniority, 'function': temp_function}
 
 		elif 'chief' in value and 'officer' in value:
 			# Chief {Something} Officer
@@ -182,7 +189,7 @@ class Persona:
 					temp_function = persona
 					break
 			seniority = 10 if temp_function == 'executive' else 8
-			temp_function = temp_function or 'Deal Team'
+			temp_function = temp_function or self.default_persona
 			if seniority and temp_function:
 				return {'seniority': seniority, 'function': temp_function}
 
@@ -220,13 +227,13 @@ class Persona:
 			temp_seniority = None
 			if value in self.seniority_mapping:
 				temp_seniority = self.seniority_mapping[value]
-				temp_function = 'Deal Team'
+				temp_function = self.default_persona
 			else:
 				for persona, synonym in self.persona_mapping.items():
 					if value in synonym:
 						temp_function = persona
-						break
-				temp_seniority = self.seniority_mapping['default_']			
+						break		
+				temp_seniority = self.default_seniority	
 			if temp_function and temp_seniority:
 				return {'seniority': temp_seniority, 'function': temp_function}
 
