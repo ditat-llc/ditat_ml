@@ -617,6 +617,7 @@ class Pipeline:
         
         # Save attributes.
         self.model_name = name
+        self._information['model_name'] = self.model_name
         self.model_path = os.path.join(os.getcwd(), directory, self.model_name)
         
         # Handle pre-existing directory and overwrite it if needed.
