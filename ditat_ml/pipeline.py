@@ -611,6 +611,9 @@ class Pipeline:
         '''
         # Set environment
         self._deployment = True
+
+        # Set model timestamp
+        self._information['date'] = date.today()
         
         # Save attributes.
         self.model_name = name
