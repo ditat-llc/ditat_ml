@@ -588,12 +588,13 @@ class Pipeline:
         directory='models',
         overwrite=False,
         other_cols=None,
-        save_plots=True
+        save_plots=True,
+        add_date_to_save_path=False
         ):
         '''
         We train the model on the whole dataset once we have decided
         we are satified with the model performance. This will save the model
-        and all its parameters in /{directory}/{name}_{date}/
+        and all its parameters in /{directory}/{name}/(_{self._information['daye']})/
 
         1. Create path for deployed model.
         2. Preprocess, scale and train on the full dataset.
@@ -607,6 +608,7 @@ class Pipeline:
                 to include in the full_results.csv
             - save_plots (bool, default=True): Similar tro training, whether you want to save
                 the learning curves.
+            - add_date_to_save_path (bool, default=False): Add date to model name for self.path
 
         '''
         # Set environment
@@ -619,6 +621,8 @@ class Pipeline:
         self.model_name = name
         self._information['model_name'] = self.model_name
         self.model_path = os.path.join(os.getcwd(), directory, self.model_name)
+        if add_date_to_save_path:
+            self.model_path += f"_{self._information['date']}"
         
         # Handle pre-existing directory and overwrite it if needed.
         if overwrite and os.path.exists(self.model_path):
