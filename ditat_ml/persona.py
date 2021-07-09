@@ -299,6 +299,11 @@ class Persona:
 		if not value or not isinstance(value, str) or len(value) < 2:
 			return None
 
+		# Check if value is present in self.mapping
+		# This logic also exists inside self_internal_process()
+		if value in self.mapping:
+			return self.mapping[value]
+
 		# Some exceptions
 		value  = value.replace('Co-', 'Co ')
 

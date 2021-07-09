@@ -4,6 +4,7 @@ import inspect
 import importlib
 from datetime import date
 import json
+from copy import deepcopy
 
 import pandas as pd
 import numpy as np
@@ -173,7 +174,7 @@ class Pipeline:
                     raise ValueError(f"{val} not present in self.df.columns.")
         else:
             if value not in self.df.columns:
-                raise ValueError(f"{val} not present in self.df.columns.")
+                raise ValueError(f"{value} not present in self.df.columns.")
         
         # Setter
         self._y_columns = value
@@ -629,8 +630,6 @@ class Pipeline:
                 f = custom_function_info['function']
                 f_code = inspect.getsource(f)
                 file.write(f_code)
-                # Function cannot be read upon loading. Only name remains.
-                del custom_function_info['function']
         
         # All the following steps are a replication of the steps applied to the testing data.
         # but now on the whole dataset.
@@ -651,9 +650,13 @@ class Pipeline:
         dump(self.model, os.path.join(self.model_path, 'model.joblib'))
         dump(self.scaler, os.path.join(self.model_path, 'scaler.joblib'))
         
-        # Saver self._information as as json
+        # Saver self._information as as json (deepcopy)
         with open(os.path.join(self.model_path, 'information.json'), 'w') as file:
-            json.dump(self._information, file)
+            # Creation of a deep copied self._information is necessary if we want to deploy the model more than once.
+            _information_to_save = deepcopy(self._information)
+            for custom_function_info in _information_to_save['apply_X']:
+                del custom_function_info['function']
+            json.dump(_information_to_save, file)
 
     def predict(
         self,
