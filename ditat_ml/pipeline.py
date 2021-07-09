@@ -613,7 +613,7 @@ class Pipeline:
         self._deployment = True
 
         # Set model timestamp
-        self._information['date'] = date.today()
+        self._information['date'] = str(date.today())
         
         # Save attributes.
         self.model_name = name
