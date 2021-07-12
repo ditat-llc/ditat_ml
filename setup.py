@@ -5,7 +5,7 @@ setup(
 	author='ditat.io',
 	description='Ditat Machine Learning Implementation',
 	name='ditat_ml',
-	version='0.1.6',
+	version='0.1.7',
 	packages=find_packages(include=['ditat_ml', 'ditat_ml.*']),
 	python_requires='>=3.6',
 	install_requires=[
