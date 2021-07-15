@@ -459,6 +459,125 @@ class Pipeline:
         # Running internal method for analysis.
         self._results(show_plots, corr_th=corr_th, scoring=scoring, verbose=verbose)
 
+    def pipeline(
+        self,
+        dataset_path,
+        X_columns,
+        y_columns,
+        model,
+        k_folds=1,
+        test_size=0.2,
+        stratify=False,
+        cat_mapping=None,
+        cat_options_mapping=None,
+        boolean_mapping=None,
+        continuous_mapping=None,
+        verbose=True
+
+        ):
+        '''
+        Using different split
+        '''
+        # 1. Load data -> self.df 
+        self.load_data(path=dataset_path)
+
+        # 2. Setters for features and target(s)
+        self.X_columns = X_columns
+        self.y_columns = y_columns
+
+        # K FOLD
+        self.agg_ras_train = []
+        self.agg_ras_test = []
+        self.agg_train_score = []
+        self.agg_test_score = []
+
+        self.agg_train_cm = []
+        self.agg_test_cm = []
+
+        for _ in range(k_folds):
+            self.random_state = None
+
+            # 3. Split
+            self.split(test_size=test_size, stratify=stratify)
+
+            # 4. Preprocessing
+            self.preprocessing(
+                cat_mapping=cat_mapping,
+                cat_options_mapping=cat_options_mapping,
+                boolean_mapping=boolean_mapping,
+                continuous_mapping=continuous_mapping
+            )
+
+            # 5. Scale
+            self.scale()
+
+            # 6. Model
+            self.model = model
+
+            # 7. Train
+            self.train(
+                show_plots=False,
+                corr_th=0.8,
+                scoring='roc_auc',
+                verbose=False
+            )
+            # Aggregates and averages
+            self.agg_ras_train.append(self.ras_train)
+            self.agg_ras_test.append(self.ras_test)
+            self.agg_train_score.append(self.train_score)
+            self.agg_test_score.append(self.test_score)
+
+            self.agg_train_cm.append(self.train_cm)
+            self.agg_test_cm.append(self.test_cm)
+
+        self.avg_ras_train = np.mean(self.agg_ras_train)
+        self.avg_ras_test = np.mean(self.agg_ras_test)
+        self.avg_train_score = np.mean(self.agg_train_score)
+        self.avg_test_score = np.mean(self.agg_test_score)
+
+        self.avg_train_cm = np.mean(self.agg_train_cm, axis=0).round(0)
+        self.avg_test_cm = np.mean(self.agg_test_cm, axis=0).round(0)
+
+        if verbose:
+            spaces = 5
+            model_str = ' '.join(str(model).replace("\n", "").split())
+            analysis = f'''
+########################################
+
+PIPELINE ANALYSIS - DITAT_ML - ditat.io
+
+Description:
+
+- Model: {model_str}
+- KFold: n = {k_folds}
+- Test_size: {test_size}
+
+Indicators:
+
+    - Class False % : {self.y[self.y == 0].shape[0] / self.df.shape[0] :0.2f}
+    - Class True % : {self.y[self.y == 1].shape[0] / self.df.shape[0] :0.2f}
+
+    - Train Score   : {self.avg_train_score.round(4)}
+    - Test Score    : {self.avg_test_score.round(4)}
+
+    - Auc Train     : {self.avg_ras_train.round(4)}
+    - Auc  Test     : {self.avg_ras_test.round(4)}
+
+    - Avg. Confusion Matrix - Training
+        {' ' * (spaces - 2)}PN | PP
+     TN {' ' * (spaces - len(str(self.avg_train_cm[0][0]).split('.')[0]))}{self.avg_train_cm[0][0] :0.0f} | {self.avg_train_cm[0][1] :0.0f}
+     TP {' ' * (spaces - len(str(self.avg_train_cm[1][0]).split('.')[0]))}{self.avg_train_cm[1][0] :0.0f} | {self.avg_train_cm[1][1] :0.0f}
+
+    - Avg. Confusion Matrix - Testing
+        {' ' * (spaces - 2)}PN | PP
+     TN {' ' * (spaces - len(str(self.avg_test_cm[0][0]).split('.')[0]))}{self.avg_test_cm[0][0] :0.0f} | {self.avg_test_cm[0][1] :0.0f}
+     TP {' ' * (spaces - len(str(self.avg_test_cm[1][0]).split('.')[0]))}{self.avg_test_cm[1][0] :0.0f} | {self.avg_test_cm[1][1] :0.0f}
+
+########################################
+'''
+            print(analysis)
+            print((len(str(self.avg_train_cm[1][0]).split('.')[0])))
+
     def _results(
         self,
         show_plots=True,
@@ -513,16 +632,18 @@ class Pipeline:
             self.test_score =self.model.score(self.X_test_scaled, self.y_test)
             
             # Verbose scores
-            print('Score Train', round(self.train_score, 4))
-            print('Score Test', round(self.test_score, 4))
+            if verbose:
+                print('Score Train', round(self.train_score, 4))
+                print('Score Test', round(self.test_score, 4))
             
             # Confusion matrices
             self.train_cm = confusion_matrix(self.y_train, train_results['train_predict'])
             self.test_cm = confusion_matrix(self.y_test, test_results['test_predict'])
             
             # Verbose confusion matrices
-            print('Train\n', self.train_cm)
-            print('Test\n', self.test_cm)
+            if verbose:
+                print('Train\n', self.train_cm)
+                print('Test\n', self.test_cm)
             
             # If predict_proba is a method of self.model
             if 'predict_proba' in dir(self.model):
@@ -535,8 +656,9 @@ class Pipeline:
                 self.ras_test = roc_auc_score(self.y_test, test_results['test_predict_proba'])
                 
                 # Verbose AUC
-                print(f"Roc Auc score Training: {round(self.ras_train, 4)}")
-                print(f"Roc Auc score Testing: {round(self.ras_test, 4)}")
+                if verbose:
+                    print(f"Roc Auc score Training: {round(self.ras_train, 4)}")
+                    print(f"Roc Auc score Testing: {round(self.ras_test, 4)}")
         else:
             # Similar to the previous if, but for self._deployment == True
             full_results['y'] = self.y
@@ -544,13 +666,15 @@ class Pipeline:
             
             # Accuracy score as attribute.
             self.full_score = self.model.score(self.X_scaled, self.y)
-            print('Score Full', round(self.full_score, 4))
+            if verbose:
+                print('Score Full', round(self.full_score, 4))
             
             # If predict_proba is a method of 
             if 'predict_proba' in dir(self.model):
                 full_results['predict_proba'] = self.model.predict_proba(self.X_scaled)[:, 1]
                 self.ras_full = roc_auc_score(self.y, full_results['predict_proba'])
-                print(f"Roc Auc score Full: {round(self.ras_full, 4)}")
+                if verbose:
+                    print(f"Roc Auc score Full: {round(self.ras_full, 4)}")
             
             # Add extra columns if needed
             if other_cols and all(item in self.df.columns for item in other_cols):
