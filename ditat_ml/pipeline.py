@@ -696,7 +696,6 @@ Indicators:
         if self._deployment:
             verbose = False
             corr_th = 0
-            save = True
             save_path = self.model_path
         
         # Create 3 dataframes for results.
@@ -783,7 +782,8 @@ Indicators:
                     full_results[col] = self.df[col]
             
             # Saving results
-            full_results.to_csv(os.path.join(self.model_path, 'full_results.csv'), index=False)
+            if save:
+                full_results.to_csv(os.path.join(self.model_path, 'full_results.csv'), index=False)
 
         # Correlation analysis
         self.df_corr = utility_functions.find_high_corr(
@@ -832,7 +832,7 @@ Indicators:
             - other_cols (list, default=None): Other columns in the original self.df
                 to include in the full_results.csv
             - save_plots (bool, default=True): Similar tro training, whether you want to save
-                the learning curves.
+                the learning curves and general data.
             - add_date_to_save_path (bool, default=False): Add date to model name for self.path
 
         '''
@@ -877,7 +877,7 @@ Indicators:
         self.model.fit(self.X_scaled, self.y)
         
         # Running Analytics
-        self._results(other_cols=other_cols, show_plots=save_plots)
+        self._results(other_cols=other_cols, show_plots=save_plots, save=save_plots)
         
         # Save model and scaler.
         dump(self.model, os.path.join(self.model_path, 'model.joblib'))
