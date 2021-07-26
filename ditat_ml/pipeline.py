@@ -33,6 +33,12 @@ I. Train and test your model.
     5. Scale data. | Pipeline.scale()
     6. Train your model | Pipeline.train()
 
+(I option B):
+    You can use self.pipeline() to automate this first step.
+    The big advantages are:
+        - K-fold.
+        - Custom learning curves.
+
 II. Deploy your model.
     This will save all the parameters and functions into the corresponding directory in
     ./models/{model_name}/
@@ -76,6 +82,10 @@ class Pipeline:
         
         # Property for self.model
         self._model = None
+
+        # Internals for attributes
+        self._X = None
+        self._y = None
         
         # Important flag to separate training VS deployment | predictions
         self._deployment = False
@@ -98,19 +108,24 @@ class Pipeline:
         # Flag to know if X_columns has been set.
         self._X_columns_set = False
 
-    def load_data(self, path):
+    def load_data(self, path_or_dataframe: str or pd.DataFrame) -> None:
         '''
-        Loads the data from csv file to pd.DataFrame.
+        Loads the data from csv file to pd.DataFrame or
+            pass a pd.DataFrame directly. 
 
         Note:
             This method is used for both Deployment and Prediction.
         Args:
-            - path (str): Filepath for csv file with data.
+            - path_or_dataframe (str or pd.DataFrame): Filepath for csv file with data
+                or pd.DataFrame
         Returns:
             - None
         '''
         # Load data
-        df = pd.read_csv(filepath_or_buffer=path, nrows=self.nrows)
+        if type(path_or_dataframe) == pd.DataFrame:
+            df = path_or_dataframe
+        else:
+            df = pd.read_csv(filepath_or_buffer=path_or_dataframe, nrows=self.nrows)
         
         # Set dataframe.
         self.df = df
@@ -123,15 +138,18 @@ class Pipeline:
         return self._X_columns
 
     @X_columns.setter
-    def X_columns(self, value: list):
+    def X_columns(self, value: list or True):
         '''
-        We need to make self.X_columns a property because we have custom
-        transformations such as in self.apply_X() where columns can change
-        and later when using the imputer we validate that the columns exist
-        in this property.
+        Automatically sets self.X with all the proper validations.
+
+        If self.y has been set and value is True,
+            value will be set to all the columns in self.df excluding the ones
+            present in self.y_columns.
         '''
+        if self.y is not None:
+            value = self.df.drop(self.y_columns, axis=1).columns.tolist()
         # List validation.
-        if value is not None and type(value) != list:
+        elif value is not None and type(value) != list:
             raise ValueError('You must pass a list of features for X_columns.')
         
         # Retrieve values if deployment is True (also for predictions)
@@ -144,7 +162,7 @@ class Pipeline:
                 raise ValueError(f"{val} not present in self.df.columns.")
         
         # Setting self.X
-        self.X = self.df[value]
+        self._X = self.df[value]
         
         # Setter
         self._X_columns = value
@@ -156,12 +174,21 @@ class Pipeline:
         self._X_columns_set = True
 
     @property
+    def X(self):
+        return self._X
+
+    @property
+    def y(self):
+        return self._y
+
+    @property
     def y_columns(self):
         return self._y_columns
 
     @y_columns.setter
     def y_columns(self, value: str or list):
         '''
+        Automatically sets self.y with all the proper validations.
         '''
         # Checking right flag.
         if self._deployment is True:
@@ -183,7 +210,8 @@ class Pipeline:
         self._information['y_columns'] = self._y_columns
         
         # Setting self.y
-        self.y = self.df[self._y_columns]
+
+        self._y = self.df[self._y_columns]
 
     def load_X_y(self, X_columns: list=None, y_columns: list or str=None):
         '''
@@ -215,7 +243,7 @@ class Pipeline:
             raise AssertionError('You need to set self.X_columns or self.load_X_y() before.')
         
         # Application of custom transformer.
-        self.X = function(self.X, columns)
+        self._X = function(self.X, columns)
         
         # Write information necessary in self._information
         # to be used when deploying or predicting.
@@ -370,13 +398,13 @@ class Pipeline:
         # VI. This flags the order of custom function for deployment and predictions
         self._preprocessed = True
 
-    def scale(self, scaler=MinMaxScaler()):
+    def scale(self, scaler=StandardScaler()):
         '''
         Depending on self_deployment, we scaled self.X_train and self.X_test
         OR self.X (predictions).
 
         Args:
-            - scaler (default="sklearn.preprocessing.MinMaxScaler")
+            - scaler (default="sklearn.preprocessing.StandardScaler")
 
         '''
         if self._deployment is True:
@@ -457,45 +485,81 @@ class Pipeline:
         self.model.fit(self.X_train_scaled, self.y_train)
         
         # Running internal method for analysis.
-        self._results(show_plots, corr_th=corr_th, scoring=scoring, verbose=verbose)
+        self._results(
+            show_plots,
+            corr_th=corr_th,
+            scoring=scoring,
+            verbose=verbose
+        )
 
     def pipeline(
         self,
-        dataset_path,
-        X_columns,
-        y_columns,
+        path_or_dataframe: str or pd.DataFrame,
+        X_columns: list,
+        y_columns: str or list,
         model,
-        k_folds=1,
+        X_all_but: bool=False,
+        k_folds=5,
         test_size=0.2,
-        stratify=False,
+        stratify=True,
         cat_mapping=None,
         cat_options_mapping=None,
         boolean_mapping=None,
         continuous_mapping=None,
-        verbose=True
-
+        verbose=True,
+        corr_th=0.8,
+        scoring='roc_auc',
+        learning_curve=False
         ):
         '''
-        Using different split
+        Easy wrapper to cross-validate using kfold and have more
+        robust results.
+
+        Args:
+            - path_or_dataframe (str or pd.DataFrame): If str, path for data.
+                You can also pass the dataframe directly.
+            - X_columns (list): List of features to use.
+                You can pass a list of the features, or consider all features except for {list}.
+                You need to pass X_all_but = True in that case.
+            - y_columns (str or list): Target variables(s).
+            - model: Model to be used. It triggers setter self.model = model.
+
+        Pending:
+            Learning curves.
+
         '''
-        # 1. Load data -> self.df 
-        self.load_data(path=dataset_path)
-
-        # 2. Setters for features and target(s)
-        self.X_columns = X_columns
-        self.y_columns = y_columns
-
-        # K FOLD
+        # ALL AGGREGATE SCORING
         self.agg_ras_train = []
         self.agg_ras_test = []
+
         self.agg_train_score = []
         self.agg_test_score = []
 
         self.agg_train_cm = []
         self.agg_test_cm = []
 
-        for _ in range(k_folds):
-            self.random_state = None
+        self.agg_fi = []
+
+        self.agg_df_corr = []
+
+        # # Plotting learning curve
+        # if learning_curve:
+        #     # 1. Load data -> self.df 
+        #     self.load_data(path=dataset_path)
+
+        for k_fold in range(k_folds):
+            self.random_state = k_fold
+
+            # 1. Load data -> self.df 
+            self.load_data(path_or_dataframe=path_or_dataframe)
+
+            # if learning_curve:
+            #     frac = (k_fold + 1) / k_folds
+            #     self.df = self.df.groupby('won_opp').apply(lambda x: x.sample(frac=frac)).reset_index(drop=True)
+
+            # 2. Setters for features and target(s)
+            self.y_columns = y_columns
+            self.X_columns = X_columns
 
             # 3. Split
             self.split(test_size=test_size, stratify=stratify)
@@ -517,8 +581,8 @@ class Pipeline:
             # 7. Train
             self.train(
                 show_plots=False,
-                corr_th=0.8,
-                scoring='roc_auc',
+                corr_th=0,
+                scoring=scoring,
                 verbose=False
             )
             # Aggregates and averages
@@ -530,13 +594,36 @@ class Pipeline:
             self.agg_train_cm.append(self.train_cm)
             self.agg_test_cm.append(self.test_cm)
 
+            self.agg_fi.append(self.df_fi.T)
+
+            self.agg_df_corr.append(self.df_corr)
+
+        # ROC AUC Scores
         self.avg_ras_train = np.mean(self.agg_ras_train)
         self.avg_ras_test = np.mean(self.agg_ras_test)
+
+        # Scores
         self.avg_train_score = np.mean(self.agg_train_score)
         self.avg_test_score = np.mean(self.agg_test_score)
 
+        # Confusion Matrices
         self.avg_train_cm = np.mean(self.agg_train_cm, axis=0).round(0)
         self.avg_test_cm = np.mean(self.agg_test_cm, axis=0).round(0)
+
+        # Feature Importances.
+        agg_fi_features = self.agg_fi[0].columns
+        agg_fi_columns = self.agg_fi[0].index
+        self.agg_fi = [df[agg_fi_features].T for df in self.agg_fi]
+        self.avg_fi = pd.DataFrame(index=agg_fi_features, columns=agg_fi_columns, data=np.mean(self.agg_fi, axis=0))
+        self.avg_fi.sort_values(by='feature_importance', ascending=False, inplace=True)
+
+        # Correlation Matrix.
+        self.avg_df_corr = pd.concat(self.agg_df_corr, axis=0).groupby(['column_1', 'column_2']).mean().reset_index()
+        self.avg_df_corr['temp'] = self.avg_df_corr['corr'].abs()
+        self.avg_df_corr.sort_values('temp', ascending=False, inplace=True)
+        self.avg_df_corr = self.avg_df_corr[self.avg_df_corr['temp'] >= corr_th]
+        self.avg_df_corr.drop('temp', axis=1, inplace=True)
+        self.avg_df_corr.reset_index(inplace=True, drop=True)
 
         if verbose:
             spaces = 5
@@ -550,12 +637,13 @@ Description:
 
 - Model: {model_str}
 - KFold: n = {k_folds}
-- Test_size: {test_size}
+- Data shape: {self.df.shape}
+- Test Size %: {test_size}
 
 Indicators:
 
     - Class False % : {self.y[self.y == 0].shape[0] / self.df.shape[0] :0.2f}
-    - Class True % : {self.y[self.y == 1].shape[0] / self.df.shape[0] :0.2f}
+    - Class True  % : {self.y[self.y == 1].shape[0] / self.df.shape[0] :0.2f}
 
     - Train Score   : {self.avg_train_score.round(4)}
     - Test Score    : {self.avg_test_score.round(4)}
@@ -564,19 +652,24 @@ Indicators:
     - Auc  Test     : {self.avg_ras_test.round(4)}
 
     - Avg. Confusion Matrix - Training
-        {' ' * (spaces - 2)}PN | PP
-     TN {' ' * (spaces - len(str(self.avg_train_cm[0][0]).split('.')[0]))}{self.avg_train_cm[0][0] :0.0f} | {self.avg_train_cm[0][1] :0.0f}
-     TP {' ' * (spaces - len(str(self.avg_train_cm[1][0]).split('.')[0]))}{self.avg_train_cm[1][0] :0.0f} | {self.avg_train_cm[1][1] :0.0f}
+              {' ' * (spaces - 2)}PN | PP
+           TN {' ' * (spaces - len(str(self.avg_train_cm[0][0]).split('.')[0]))}{self.avg_train_cm[0][0] :0.0f} | {self.avg_train_cm[0][1] :0.0f}
+           TP {' ' * (spaces - len(str(self.avg_train_cm[1][0]).split('.')[0]))}{self.avg_train_cm[1][0] :0.0f} | {self.avg_train_cm[1][1] :0.0f}
 
     - Avg. Confusion Matrix - Testing
-        {' ' * (spaces - 2)}PN | PP
-     TN {' ' * (spaces - len(str(self.avg_test_cm[0][0]).split('.')[0]))}{self.avg_test_cm[0][0] :0.0f} | {self.avg_test_cm[0][1] :0.0f}
-     TP {' ' * (spaces - len(str(self.avg_test_cm[1][0]).split('.')[0]))}{self.avg_test_cm[1][0] :0.0f} | {self.avg_test_cm[1][1] :0.0f}
+              {' ' * (spaces - 2)}PN | PP
+           TN {' ' * (spaces - len(str(self.avg_test_cm[0][0]).split('.')[0]))}{self.avg_test_cm[0][0] :0.0f} | {self.avg_test_cm[0][1] :0.0f}
+           TP {' ' * (spaces - len(str(self.avg_test_cm[1][0]).split('.')[0]))}{self.avg_test_cm[1][0] :0.0f} | {self.avg_test_cm[1][1] :0.0f}
+
+    - Feature Importance (Displaying max. 60 rows)
+{self.avg_fi.head(60)}
+
+    - Feature Correlation (th >= {corr_th}) (Displaying max. 60 rows)
+{self.avg_df_corr.head(60)}
 
 ########################################
 '''
             print(analysis)
-            print((len(str(self.avg_train_cm[1][0]).split('.')[0])))
 
     def _results(
         self,
@@ -609,13 +702,13 @@ Indicators:
         
         # Process feature importance if self.model has that attribute.
         if 'feature_importances_' in dir(self.model):
-            df_fi = utility_functions.feature_importance(
+            self.df_fi = utility_functions.feature_importance(
                 feature_importances=self.model.feature_importances_,
                 data=X_,
                 verbose=verbose
             )
             if save is True:
-                df_fi.to_csv(os.path.join(self.model_path, 'feature_importances.csv'))
+                self.df_fi.to_csv(os.path.join(self.model_path, 'feature_importances.csv'))
         
         # Populating train and test.
         if not self._deployment:
@@ -685,7 +778,7 @@ Indicators:
             full_results.to_csv(os.path.join(self.model_path, 'full_results.csv'), index=False)
 
         # Correlation analysis
-        utility_functions.find_high_corr(
+        self.df_corr = utility_functions.find_high_corr(
             dataframe=X_,
             threshold=corr_th,
             verbose=verbose,
@@ -765,7 +858,7 @@ Indicators:
         
         # All the following steps are a replication of the steps applied to the testing data.
         # but now on the whole dataset.
-        
+
         # Preprocessing
         self.preprocessing()
         
@@ -840,7 +933,8 @@ Indicators:
         for info in self._information['apply_X']:           
             custom_module = importlib.import_module(f'models.{self.model_name}.custom')
             custom_function = getattr(custom_module, info['function_name'])
-            self.X = custom_function(self.X, info['columns'])   
+            # self.X = custom_function(self.X, info['columns'])   
+            self._X = custom_function(self.X, info['columns'])   
         
         # Preprocess self.X
         self.preprocessing()
