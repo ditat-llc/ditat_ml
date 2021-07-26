@@ -177,9 +177,17 @@ class Pipeline:
     def X(self):
         return self._X
 
+    @X.setter
+    def X(self, value):
+        self._X = value
+
     @property
     def y(self):
         return self._y
+
+    @y.setter
+    def y(self, value):
+        self._y = value
 
     @property
     def y_columns(self):
@@ -243,7 +251,7 @@ class Pipeline:
             raise AssertionError('You need to set self.X_columns or self.load_X_y() before.')
         
         # Application of custom transformer.
-        self._X = function(self.X, columns)
+        self.X = function(self.X, columns)
         
         # Write information necessary in self._information
         # to be used when deploying or predicting.
@@ -508,8 +516,7 @@ class Pipeline:
         continuous_mapping=None,
         verbose=True,
         corr_th=0.8,
-        scoring='roc_auc',
-        learning_curve=False
+        scoring='roc_auc'
         ):
         '''
         Easy wrapper to cross-validate using kfold and have more
@@ -542,20 +549,11 @@ class Pipeline:
 
         self.agg_df_corr = []
 
-        # # Plotting learning curve
-        # if learning_curve:
-        #     # 1. Load data -> self.df 
-        #     self.load_data(path=dataset_path)
-
         for k_fold in range(k_folds):
             self.random_state = k_fold
 
             # 1. Load data -> self.df 
             self.load_data(path_or_dataframe=path_or_dataframe)
-
-            # if learning_curve:
-            #     frac = (k_fold + 1) / k_folds
-            #     self.df = self.df.groupby('won_opp').apply(lambda x: x.sample(frac=frac)).reset_index(drop=True)
 
             # 2. Setters for features and target(s)
             self.y_columns = y_columns
@@ -933,8 +931,7 @@ Indicators:
         for info in self._information['apply_X']:           
             custom_module = importlib.import_module(f'models.{self.model_name}.custom')
             custom_function = getattr(custom_module, info['function_name'])
-            # self.X = custom_function(self.X, info['columns'])   
-            self._X = custom_function(self.X, info['columns'])   
+            self.X = custom_function(self.X, info['columns'])   
         
         # Preprocess self.X
         self.preprocessing()
