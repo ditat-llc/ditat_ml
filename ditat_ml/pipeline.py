@@ -884,7 +884,7 @@ Indicators:
     def predict(
         self,
         model_name,
-        path=None,
+        path_or_dataframe=None,
         save=True,
         other_cols=None
         ):
@@ -901,8 +901,8 @@ Indicators:
 
         Args:
             - model_name (str): Name of the model to load. It 
-            - path (str, default=None): Where the data for the predicting is.
-                includes the _YYYYMMDD.
+            - path_or_dataframe (str or pd.DataFrame, default=None): Where the data for the predicting is.
+                You can also pass a dataframe
             - save (bool, default=True): Whether to save the prediction dataframe as
                 results.csv
             - other_cols (list, default=None): Include other columns from the dataframe to
@@ -917,9 +917,9 @@ Indicators:
         
         # Check and load data self.load_data() has not been triggered before.
         if self._data_loaded is False:
-            if path is None:
-                raise ValueError('You have to provide a path or self.load_data() to predict.')
-            self.load_data(path)
+            if path_or_dataframe is None:
+                raise ValueError('You have to provide a path_or_dataframe or self.load_data() to predict.')
+            self.load_data(path_or_dataframe)
         
         # Loading model
         self.load_model(model_name)
