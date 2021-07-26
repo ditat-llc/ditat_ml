@@ -138,18 +138,12 @@ class Pipeline:
         return self._X_columns
 
     @X_columns.setter
-    def X_columns(self, value: list or True):
+    def X_columns(self, value: list):
         '''
         Automatically sets self.X with all the proper validations.
-
-        If self.y has been set and value is True,
-            value will be set to all the columns in self.df excluding the ones
-            present in self.y_columns.
         '''
-        if self.y is not None:
-            value = self.df.drop(self.y_columns, axis=1).columns.tolist()
         # List validation.
-        elif value is not None and type(value) != list:
+        if value is not None and type(value) != list:
             raise ValueError('You must pass a list of features for X_columns.')
         
         # Retrieve values if deployment is True (also for predictions)
@@ -516,7 +510,8 @@ class Pipeline:
         continuous_mapping=None,
         verbose=True,
         corr_th=0.8,
-        scoring='roc_auc'
+        scoring='roc_auc',
+        learning_curve=False
         ):
         '''
         Easy wrapper to cross-validate using kfold and have more
@@ -535,6 +530,14 @@ class Pipeline:
             Learning curves.
 
         '''
+        # 1. Load data -> self.df (You can previosuly load data if necessary)
+        if self._data_loaded is False:
+            self.load_data(path_or_dataframe=path_or_dataframe)
+
+        # 2. Setters for features and target(s)
+        self.X_columns = X_columns if X_all_but is False else self.df.drop(X_columns, axis=1).columns.tolist()
+        self.y_columns = y_columns
+
         # ALL AGGREGATE SCORING
         self.agg_ras_train = []
         self.agg_ras_test = []
@@ -549,15 +552,10 @@ class Pipeline:
 
         self.agg_df_corr = []
 
+
+
         for k_fold in range(k_folds):
             self.random_state = k_fold
-
-            # 1. Load data -> self.df 
-            self.load_data(path_or_dataframe=path_or_dataframe)
-
-            # 2. Setters for features and target(s)
-            self.y_columns = y_columns
-            self.X_columns = X_columns
 
             # 3. Split
             self.split(test_size=test_size, stratify=stratify)
@@ -622,6 +620,18 @@ class Pipeline:
         self.avg_df_corr = self.avg_df_corr[self.avg_df_corr['temp'] >= corr_th]
         self.avg_df_corr.drop('temp', axis=1, inplace=True)
         self.avg_df_corr.reset_index(inplace=True, drop=True)
+
+        if learning_curve:
+            lc = utility_functions.plot_learning_curve(
+                estimator=self.model,
+                X=self.X_train_scaled,
+                y=self.y_train,
+                scoring=scoring,
+                cv=10,
+                n_jobs=-1,
+                save_path=None
+            )
+            lc.show()
 
         if verbose:
             spaces = 5
