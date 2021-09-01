@@ -609,7 +609,16 @@ class Pipeline:
         # Feature Importances.
         agg_fi_features = self.agg_fi[0].columns
         agg_fi_columns = self.agg_fi[0].index
-        self.agg_fi = [df[agg_fi_features].T for df in self.agg_fi]
+
+        # Temporary fix due to unmatching feature importance.
+        r = []
+        for df in self.agg_fi:
+            try:
+                r.append(df[agg_fi_features].T)
+            except:
+                pass
+        self.agg_fi = r.copy()
+        # self.agg_fi = [df[agg_fi_features].T for df in self.agg_fi]
         self.avg_fi = pd.DataFrame(index=agg_fi_features, columns=agg_fi_columns, data=np.mean(self.agg_fi, axis=0))
         self.avg_fi.sort_values(by='feature_importance', ascending=False, inplace=True)
 
