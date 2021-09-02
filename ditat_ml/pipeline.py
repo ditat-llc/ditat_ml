@@ -343,7 +343,7 @@ class Pipeline:
             for feature, mapping in boolean_mapping.items():
                 self.X_train, self.X_test = utility_functions.boolean_pipeline(
                     data=self.X_train,
-                    columns=[feature],
+                    columns_or_dict=[feature],
                     test=self.X_test,
                     mapping=mapping
                 )
@@ -351,38 +351,25 @@ class Pipeline:
         elif self._information.get('boolean_feature_list'):
             self.X = utility_functions.boolean_pipeline(
                 data=self.X,
-                columns=self._information.get('boolean_feature_list'),
+                columns_or_dict=self._information.get('boolean_feature_list'),
                 test=None,
                 mapping=self._information.get('boolean_feature_mapping')
             )
         
         # IV. CONTINUOUS
         if self._deployment is False and continuous_mapping:
-            for feature, imputer in continuous_mapping.items():
-                if feature not in self.X.columns:
-                    continue
-                if imputer == 'mean':
-                    imputer = self.X_train[feature].mean()
-
-                self.X_train, self.X_test = utility_functions.fillna(
-                    data=self.X_train,
-                    columns=[feature],
-                    test=self.X_test,
-                    value=imputer
-                )
+            self.X_train, self.X_test = utility_functions.continuous_feature_pipeline(
+                data=self.X_train,
+                mapping=continuous_mapping,
+                test=self.X_test
+            )
             self._information['continuous_mapping'] = continuous_mapping
         elif self._information.get('continuous_mapping'):
-            for feature, imputer in self._information.get('continuous_mapping').items():
-                if feature not in self._information['final_columns']:
-                    continue
-                if imputer == 'mean':
-                    imputer = self.X[feature].mean()
-                self.X = utility_functions.fillna(
-                    data=self.X,
-                    columns=[feature],
-                    test=None,
-                    value=imputer
-                )
+            self.X = utility_functions.continuous_feature_pipeline(
+                data=self.X,
+                mapping=self._information.get('continuous_mapping'),
+                test=None
+            )
         
         # V. KEEP COLUMNS
         if self._deployment is False:

@@ -24,7 +24,7 @@ def baseline(func):
     @wraps(func)
     def wrapper(
         data: pd.DataFrame,
-        columns: list=None,
+        columns_or_dict: list or dict=None,
         test=None,
         *args,
         **kwargs
@@ -41,7 +41,7 @@ def baseline(func):
 
         Args:
         - data (pandas.DataFrame): Dataframe for training.
-        - columns (list): Columns used for the transformation
+        - columns_or_dict (list or dict): Columns used for the transformation. It can also be a dict mapping.
         - test (pandas.DataFrame, default=None): Dataframe for predictions.
             It can be None when training on full dataset
         - *args
@@ -59,12 +59,21 @@ def baseline(func):
         if test is not None:
             test = test.copy()
 
-        for col in columns:
-            if col in data.columns:
-                data[col] = func(data, col, *args, **kwargs)
+        if isinstance(columns_or_dict, list):
+            for col in columns_or_dict:
+                if col in data.columns:
+                    data[col] = func(data, col, *args, **kwargs)
 
-                if test is not None:
-                    test[col] = func(test, col, *args, **kwargs)
+                    if test is not None:
+                        test[col] = func(test, col, *args, **kwargs)
+
+        elif isinstance(columns_or_dict, dict):
+            for k, v in columns_or_dict.items():
+                if k in data.columns:
+                    data[k] = func(data, k, v, *args, **kwargs)
+                    
+                    if test is not None:
+                        test[k] = func(test, k, v, *args, **kwargs)         
 
         if test is not None:
             return data, test
@@ -321,6 +330,58 @@ def keep_trainer_columns(
     return target_dataframe
 
 
+def continuous_feature_pipeline(
+    data: pd.DataFrame,
+    mapping: dict,
+    test: pd.DataFrame=None,
+    ) -> pd.DataFrame:
+    '''
+    Wrapper fillna for continuous variables following the baseline logic
+
+    *** The reason why we can't use the decorator @baseline here is because
+        when we use a method such as "mean", it has to be transferred from
+        training to testing, and the baseline uses either a fixed value or
+        a calculation of the dataframe per se.
+
+    Args:
+        - data (pandas.DataFrame): Dataframe for training.
+        - mapping (dict): Follows the logic
+        - test (pandas.DataFrame, default=None): Dataframe for predictions.
+            It can be None when training on full dataset
+
+            Example:
+            mapping = {
+                'value': 'median',
+                'price': 'min',
+                'employees': 1
+            }
+            df = continuous_feature_pipeline(df, columns_or_dict=mapping)
+            or
+            train, test = continuous_feature_pipeline(train, test=test, columns_or_dict=mapping)
+
+    Returns:
+        - data or (data, test): Both pd.DataFrames
+    '''
+    data = data.copy()
+
+    if test is not None:
+        test = test.copy()
+
+    for column, imputer in mapping.items():
+        if column in data.columns:
+            if isinstance(imputer, str):
+                imputer = getattr(data[column], imputer)()
+            data[column].fillna(imputer, inplace=True)
+            
+            if test is not None:
+                test[column].fillna(imputer, inplace=True)        
+
+    if test is not None:
+        return data, test
+
+    return data
+
+
 def cat_feature_pipeline(
     data: pd.DataFrame,
     mapping: dict,
@@ -334,7 +395,7 @@ def cat_feature_pipeline(
 
     Args:
         - data (pandas.DataFrame): Dataframe for training.
-        - test (pandas.DataFrame): Dataframe for predictions.
+        - test (pandas.DataFrame, default=None): Dataframe for predictions.
             It can be None when training on full dataset
         - mapping (dict): Follows the logic
             mapping = {
@@ -379,7 +440,8 @@ def cat_feature_pipeline(
             data = function(
                 dataframe=data,
                 col=key,
-                limit=value if test is not None else None,
+                # limit=value if test is not None else None,
+                limit=limit,
                 verbose=verbose,
                 use_cols=use_cols
             )
