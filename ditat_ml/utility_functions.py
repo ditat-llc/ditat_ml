@@ -148,11 +148,13 @@ def dummies_with_limit(
             to it.
     '''
     dataframe = dataframe.copy()
-
     vc = dataframe[col].value_counts()
 
     if use_cols:
-        vc = pd.DataFrame(vc.loc[use_cols])
+        # vc = pd.DataFrame(vc.loc[use_cols])
+        ### New due to deprecation deprecation
+        filtered = vc.reindex(index=use_cols).dropna()
+        vc = pd.DataFrame(filtered)
     else:
         vc = vc.head(limit)
     
@@ -245,7 +247,11 @@ def dummies_with_options_and_limit(
     vc = subset.sum().sort_values(ascending=False)
 
     if use_cols:
-        vc = pd.DataFrame(vc.loc[use_cols])
+        # vc = pd.DataFrame(vc.loc[use_cols])
+        ### New due to deprecation deprecation
+        filtered = vc.reindex(index=use_cols).dropna()
+        vc = pd.DataFrame(filtered)
+
     else:
         vc = vc.head(limit)
 
@@ -326,6 +332,8 @@ def keep_trainer_columns(
 
     for col in missing_columns:
         target_dataframe[col] = 0.0
+
+    target_dataframe = target_dataframe[trainer_columns]
 
     return target_dataframe
 
@@ -440,8 +448,7 @@ def cat_feature_pipeline(
             data = function(
                 dataframe=data,
                 col=key,
-                # limit=value if test is not None else None,
-                limit=limit,
+                limit=limit if test is not None else None,
                 verbose=verbose,
                 use_cols=use_cols
             )

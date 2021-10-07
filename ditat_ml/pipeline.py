@@ -955,7 +955,7 @@ Indicators:
         if other_cols and all(item in self.df.columns for item in other_cols):
             for col in other_cols:
                 results[col] = self.df[col]
-        
+
         # Choose to save results if needed.
         if save is True:
             results.to_csv(os.path.join(self.model_path, 'results.csv'), index=False)
