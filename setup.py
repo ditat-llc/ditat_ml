@@ -5,7 +5,7 @@ setup(
 	author='ditat.io',
 	description='Ditat Machine Learning Implementation - New pipeline kfold funcionality',
 	name='ditat_ml',
-	version='0.3.0',
+	version='0.3.1',
 	packages=find_packages(include=['ditat_ml', 'ditat_ml.*']),
 	python_requires='>=3.6',
 	install_requires=[
