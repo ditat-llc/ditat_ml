@@ -954,7 +954,7 @@ Indicators:
         # Add column(s) to predictions if needed. Used for indexing mostly.
         if other_cols and all(item in self.df.columns for item in other_cols):
             for col in other_cols:
-                results[col] = self.df[col]
+                results[col] = self.df[col].values
 
         # Choose to save results if needed.
         if save is True:
