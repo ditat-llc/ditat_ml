@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.utils import class_weight
-from sklearn.metrics import roc_auc_score, confusion_matrix
+from sklearn.metrics import roc_auc_score, confusion_matrix, multilabel_confusion_matrix
 
 from . import utility_functions
 
@@ -86,6 +86,9 @@ class Pipeline:
         # Internals for attributes
         self._X = None
         self._y = None
+
+        # Dimension for target. It gets defined along self.y
+        self.ydim = None
         
         # Important flag to separate training VS deployment | predictions
         self._deployment = False
@@ -205,6 +208,10 @@ class Pipeline:
             if value not in self.df.columns:
                 raise ValueError(f"{value} not present in self.df.columns.")
         
+        # Small workaround when target is 1 column.
+        if isinstance(value, list) and len(value) < 2:
+            value = value[0]
+
         # Setter
         self._y_columns = value
         
@@ -212,8 +219,10 @@ class Pipeline:
         self._information['y_columns'] = self._y_columns
         
         # Setting self.y
-
         self._y = self.df[self._y_columns]
+
+        # N Dimensions for target
+        self.ydim = self._y.ndim 
 
     def load_X_y(self, X_columns: list=None, y_columns: list or str=None):
         '''
@@ -424,27 +433,44 @@ class Pipeline:
         Some considerations:
             - If model accepts class weight for imbalanced
                 classification, it automatically tunes it.
+
+        Notes:
+            - There is a distinction here for ndim == 1 or 2
+            for y. This can be refactored.
+
         '''
         if self._deployment is False:
             if 'random_state' in dir(value):
                 value.random_state = self.random_state
 
             if self._calculate_class_weights:
-                # Recheck this part.
-                classes = np.unique(self.y_train)
-                class_weight_array = class_weight.compute_class_weight(
-                    class_weight='balanced',
-                    classes=classes,
-                    y=self.y_train
-                )
-                self.class_weight_ = dict(zip(classes, class_weight_array))
+                # Predicting sequences
+                if self.ydim == 2:
+                    class_weights = []
+                    for col in self.y_columns:
+                        vc = self.y_train[col].value_counts()
+                        vc  = vc / self.y_train.shape[0]
+                        vc = 1 - vc
+                        vc = vc.to_dict()
+                        class_weights.append(vc)
+                    self.class_weight_ = class_weights
 
-                # Fix for dtypes no json serializable
-                temp_dict = {}
-                keys_ = list(self.class_weight_.keys())
-                for key in keys_:
-                    temp_dict[key.item()] = self.class_weight_.pop(key)
-                self.class_weight_ = temp_dict
+                else:
+                    # Recheck this part.
+                    classes = np.unique(self.y_train)
+                    class_weight_array = class_weight.compute_class_weight(
+                        class_weight='balanced',
+                        classes=classes,
+                        y=self.y_train
+                    )
+                    self.class_weight_ = dict(zip(classes, class_weight_array))
+
+                    # Fix for dtypes no json serializable
+                    temp_dict = {}
+                    keys_ = list(self.class_weight_.keys())
+                    for key in keys_:
+                        temp_dict[key.item()] = self.class_weight_.pop(key)
+                    self.class_weight_ = temp_dict
                 
                 if 'class_weight' in dir(value):
                     value.class_weight = self.class_weight_
@@ -632,22 +658,109 @@ class Pipeline:
         if verbose:
             spaces = 5
             model_str = ' '.join(str(model).replace("\n", "").split())
+
+            ### Target Imbalance formatting
+
+            ### !!! Rewrite this part with better var names.
+
+            target_imbalances = []
+            iter_y_cols = self.y_columns if self.ydim == 2 else [self.y_columns]
+            for y_col in iter_y_cols:
+                temp_fix = self.y if self.ydim == 1 else self.y[y_col]
+                val = (temp_fix.value_counts() / self.y.shape[0]).to_dict()
+                fmt = '\n'.join([f"\tClass {i}: {round(j, 4)}" for i, j in val.items()])
+                fmt = f'{y_col}\n{fmt}\n'
+                target_imbalances.append(fmt)
+            target_imbalances = '\n'.join(target_imbalances)
+
+            # Confusion matrix imbalances
+            iter_cm_train = self.avg_train_cm if self.ydim == 2 else [self.avg_train_cm]
+            iter_cm_test = self.avg_test_cm if self.ydim == 2 else [self.avg_test_cm]
+
+            all_fmt_cm_train = []
+            for cm, y_ in zip(iter_cm_train, iter_y_cols):
+                fmt_cm = f'''
+{y_}
+   {' ' * (spaces - 2)}PN | PP
+TN {' ' * (spaces - len(str(cm[0][0]).split('.')[0]))}{cm[0][0] :0.0f} | {cm[0][1] :0.0f}
+TP {' ' * (spaces - len(str(cm[1][0]).split('.')[0]))}{cm[1][0] :0.0f} | {cm[1][1] :0.0f}
+           '''
+                all_fmt_cm_train.append(fmt_cm)
+            all_fmt_cm_train = ''.join(all_fmt_cm_train)
+
+            all_fmt_cm_test = []
+            for cm, y_ in zip(iter_cm_test, iter_y_cols):
+                fmt_cm = f'''
+{y_}
+   {' ' * (spaces - 2)}PN | PP
+TN {' ' * (spaces - len(str(cm[0][0]).split('.')[0]))}{cm[0][0] :0.0f} | {cm[0][1] :0.0f}
+TP {' ' * (spaces - len(str(cm[1][0]).split('.')[0]))}{cm[1][0] :0.0f} | {cm[1][1] :0.0f}
+           '''
+                all_fmt_cm_test.append(fmt_cm)
+            all_fmt_cm_test = ''.join(all_fmt_cm_test)
+
+
+#             analysis = f'''
+# ########################################
+
+# PIPELINE ANALYSIS - DITAT_ML - ditat.io
+
+# Description:
+
+# - Model: {model_str}
+# - KFold: n = {k_folds}
+# - Data shape: {self.df.shape}
+# - Test Size %: {test_size}
+
+# Indicators:
+
+#     - Class False % : {self.y[self.y == 0].shape[0] / self.df.shape[0] :0.2f}
+#     - Class True  % : {self.y[self.y == 1].shape[0] / self.df.shape[0] :0.2f}
+
+#     - Train Score   : {self.avg_train_score.round(4)}
+#     - Test Score    : {self.avg_test_score.round(4)}
+
+#     - Auc Train     : {self.avg_ras_train.round(4)}
+#     - Auc  Test     : {self.avg_ras_test.round(4)}
+
+#     - Avg. Confusion Matrix - Training
+#               {' ' * (spaces - 2)}PN | PP
+#            TN {' ' * (spaces - len(str(self.avg_train_cm[0][0]).split('.')[0]))}{self.avg_train_cm[0][0] :0.0f} | {self.avg_train_cm[0][1] :0.0f}
+#            TP {' ' * (spaces - len(str(self.avg_train_cm[1][0]).split('.')[0]))}{self.avg_train_cm[1][0] :0.0f} | {self.avg_train_cm[1][1] :0.0f}
+
+#     - Avg. Confusion Matrix - Testing
+#               {' ' * (spaces - 2)}PN | PP
+#            TN {' ' * (spaces - len(str(self.avg_test_cm[0][0]).split('.')[0]))}{self.avg_test_cm[0][0] :0.0f} | {self.avg_test_cm[0][1] :0.0f}
+#            TP {' ' * (spaces - len(str(self.avg_test_cm[1][0]).split('.')[0]))}{self.avg_test_cm[1][0] :0.0f} | {self.avg_test_cm[1][1] :0.0f}
+
+#     - Feature Importance (Displaying max. 60 rows)
+# {self.avg_fi.head(60)}
+
+#     - Feature Correlation (th >= {corr_th}) (Displaying max. 60 rows)
+# {self.avg_df_corr.head(60)}
+
+# ########################################
+# '''
             analysis = f'''
 ########################################
 
 PIPELINE ANALYSIS - DITAT_ML - ditat.io
 
-Description:
+DESCRIPTION:
 
 - Model: {model_str}
 - KFold: n = {k_folds}
 - Data shape: {self.df.shape}
 - Test Size %: {test_size}
 
-Indicators:
 
-    - Class False % : {self.y[self.y == 0].shape[0] / self.df.shape[0] :0.2f}
-    - Class True  % : {self.y[self.y == 1].shape[0] / self.df.shape[0] :0.2f}
+INDICATORS:
+
+########################
+    Target(s)
+{target_imbalances}
+
+########################
 
     - Train Score   : {self.avg_train_score.round(4)}
     - Test Score    : {self.avg_test_score.round(4)}
@@ -655,23 +768,25 @@ Indicators:
     - Auc Train     : {self.avg_ras_train.round(4)}
     - Auc  Test     : {self.avg_ras_test.round(4)}
 
-    - Avg. Confusion Matrix - Training
-              {' ' * (spaces - 2)}PN | PP
-           TN {' ' * (spaces - len(str(self.avg_train_cm[0][0]).split('.')[0]))}{self.avg_train_cm[0][0] :0.0f} | {self.avg_train_cm[0][1] :0.0f}
-           TP {' ' * (spaces - len(str(self.avg_train_cm[1][0]).split('.')[0]))}{self.avg_train_cm[1][0] :0.0f} | {self.avg_train_cm[1][1] :0.0f}
+########################
+    Confusion Matrix:
+** TRAIN **
+{all_fmt_cm_train}
+    
+** TEST **
+{all_fmt_cm_test}
 
-    - Avg. Confusion Matrix - Testing
-              {' ' * (spaces - 2)}PN | PP
-           TN {' ' * (spaces - len(str(self.avg_test_cm[0][0]).split('.')[0]))}{self.avg_test_cm[0][0] :0.0f} | {self.avg_test_cm[0][1] :0.0f}
-           TP {' ' * (spaces - len(str(self.avg_test_cm[1][0]).split('.')[0]))}{self.avg_test_cm[1][0] :0.0f} | {self.avg_test_cm[1][1] :0.0f}
+########################
 
     - Feature Importance (Displaying max. 60 rows)
 {self.avg_fi.head(60)}
 
+########################
+
     - Feature Correlation (th >= {corr_th}) (Displaying max. 60 rows)
 {self.avg_df_corr.head(60)}
 
-########################################
+########################
 '''
             print(analysis)
 
@@ -695,9 +810,9 @@ Indicators:
             save_path = self.model_path
         
         # Create 3 dataframes for results.
-        train_results = pd.DataFrame()
-        test_results = pd.DataFrame()
-        full_results = pd.DataFrame()
+        self.train_results = pd.DataFrame()
+        self.test_results = pd.DataFrame()
+        self.full_results = pd.DataFrame()
         
         # Mapping features and target(s) according to self._deployment
         X_ = self.X_scaled if self._deployment else self.X_train_scaled
@@ -716,26 +831,54 @@ Indicators:
         # Populating train and test.
         if not self._deployment:
             # Train dataframes
-            train_results['train_predict'] = self.model.predict(self.X_train_scaled)
-            train_results['y_train'] = self.y_train
+
+            if self.ydim == 1:
+                train_predict_cols = 'train_predict'
+                test_predict_cols = 'test_predict'
+
+                train_predict_proba_cols = 'train_predict_proba'
+                test_predict_proba_cols = 'test_predict_proba'
+
+                self.train_results['y_train'] = self.y_train
+                self.train_results['train_predict'] = self.model.predict(self.X_train_scaled)
             
+                self.test_results['y_test'] = self.y_test
+                self.test_results['test_predict'] = self.model.predict(self.X_test_scaled)
+
+
+            else:
+                train_predict_cols = [f'train_predict_{i}' for i in self.y_columns]
+                test_predict_cols = [f'test_predict_{i}' for i in self.y_columns]
+
+                train_predict_proba_cols = [f'train_predict_proba_{i}' for i in self.y_columns]
+                test_predict_proba_cols = [f'test_predict_proba_{i}' for i in self.y_columns]
+
+                self.train_results[[f'y_train_{i}' for i in self.y_columns]] = self.y_train
+                self.train_results[train_predict_cols] = self.model.predict(self.X_train_scaled)
+
+                self.test_results[[f'y_test_{i}' for i in self.y_columns]] = self.y_test
+                self.test_results[test_predict_cols] = self.model.predict(self.X_test_scaled)
+
             # Test dataframes
-            test_results['test_predict'] = self.model.predict(self.X_test_scaled)
-            test_results['y_test'] = self.y_test
             
             # Train and test accuracy scores.
             self.train_score = self.model.score(self.X_train_scaled, self.y_train)
             self.test_score =self.model.score(self.X_test_scaled, self.y_test)
-            
+
             # Verbose scores
             if verbose:
                 print('Score Train', round(self.train_score, 4))
                 print('Score Test', round(self.test_score, 4))
             
             # Confusion matrices
-            self.train_cm = confusion_matrix(self.y_train, train_results['train_predict'])
-            self.test_cm = confusion_matrix(self.y_test, test_results['test_predict'])
+            if self.ydim == 1:
+                self.train_cm = confusion_matrix(self.y_train, self.train_results[train_predict_cols])
+                self.test_cm = confusion_matrix(self.y_test, self.test_results[test_predict_cols])
             
+            else:
+                self.train_cm = multilabel_confusion_matrix(self.y_train, self.train_results[train_predict_cols])
+                self.test_cm = multilabel_confusion_matrix(self.y_test, self.test_results[test_predict_cols])
+
             # Verbose confusion matrices
             if verbose:
                 print('Train\n', self.train_cm)
@@ -744,12 +887,19 @@ Indicators:
             # If predict_proba is a method of self.model
             if 'predict_proba' in dir(self.model):
                 # Adding predict_proba to both dataframes
-                train_results['train_predict_proba'] = self.model.predict_proba(self.X_train_scaled)[:, 1]
-                test_results['test_predict_proba'] = self.model.predict_proba(self.X_test_scaled)[:, 1]
-                
+                if self.ydim == 1:
+                    self.train_results[train_predict_proba_cols] = self.model.predict_proba(self.X_train_scaled)[:, 1]
+                    self.test_results[test_predict_proba_cols] = self.model.predict_proba(self.X_test_scaled)[:, 1]
+
+                else:
+                    # self.train_results[train_predict_proba_cols] = np.concatenate(self.model.predict_proba(self.X_train_scaled), axis=1)[:, (1, 3)]
+                    # self.test_results[test_predict_proba_cols] = np.concatenate(self.model.predict_proba(self.X_test_scaled), axis=1)[:, (1, 3)]
+                    self.train_results[train_predict_proba_cols] = np.concatenate(self.model.predict_proba(self.X_train_scaled), axis=1)[:, 1::2]
+                    self.test_results[test_predict_proba_cols] = np.concatenate(self.model.predict_proba(self.X_test_scaled), axis=1)[:, 1::2]
+
                 # Creating Roc Auc Scores as attributes for both sets.
-                self.ras_train = roc_auc_score(self.y_train, train_results['train_predict_proba'])
-                self.ras_test = roc_auc_score(self.y_test, test_results['test_predict_proba'])
+                self.ras_train = roc_auc_score(self.y_train, self.train_results[train_predict_proba_cols])
+                self.ras_test = roc_auc_score(self.y_test, self.test_results[test_predict_proba_cols])
                 
                 # Verbose AUC
                 if verbose:
@@ -757,29 +907,49 @@ Indicators:
                     print(f"Roc Auc score Testing: {round(self.ras_test, 4)}")
         else:
             # Similar to the previous if, but for self._deployment == True
-            full_results['y'] = self.y
-            full_results['predict'] = self.model.predict(self.X_scaled)
+            if self.ydim == 1:
+                predict_cols = 'predict'
+                predict_proba_cols = 'predict_proba'
+
+                self.full_results['y'] = self.y
+            
+            else:
+                predict_cols = [f'predict_{i}' for i in self.y_columns]
+                predict_proba_cols = [f'predict_proba_{i}' for i in self.y_columns]
+
+                self.full_results[[f'y_{i}' for i in self.y_columns]] = self.y
+
+            
+            self.full_results[predict_cols] = self.model.predict(self.X_scaled)
             
             # Accuracy score as attribute.
             self.full_score = self.model.score(self.X_scaled, self.y)
+
             if verbose:
                 print('Score Full', round(self.full_score, 4))
             
             # If predict_proba is a method of 
             if 'predict_proba' in dir(self.model):
-                full_results['predict_proba'] = self.model.predict_proba(self.X_scaled)[:, 1]
-                self.ras_full = roc_auc_score(self.y, full_results['predict_proba'])
+                # This next section could be only one
+                if self.ydim == 1:
+                    self.full_results[predict_proba_cols] = self.model.predict_proba(self.X_scaled)[:, 1]
+                
+                else:
+                    self.full_results[predict_proba_cols] = np.concatenate(self.model.predict_proba(self.X_scaled), axis=1)[:, 1::2]
+
+                self.ras_full = roc_auc_score(self.y, self.full_results[predict_proba_cols])
+                
                 if verbose:
                     print(f"Roc Auc score Full: {round(self.ras_full, 4)}")
             
             # Add extra columns if needed
             if other_cols and all(item in self.df.columns for item in other_cols):
                 for col in other_cols:
-                    full_results[col] = self.df[col]
+                    self.full_results[col] = self.df[col]
             
             # Saving results
             if save:
-                full_results.to_csv(os.path.join(self.model_path, 'full_results.csv'), index=False)
+                self.full_results.to_csv(os.path.join(self.model_path, 'full_results.csv'), index=False)
 
         # Correlation analysis
         self.df_corr = utility_functions.find_high_corr(
