@@ -1060,6 +1060,7 @@ INDICATORS:
     def predict(
         self,
         model_name,
+        model_dir='models',
         path_or_dataframe=None,
         save=True,
         other_cols=None
@@ -1098,17 +1099,23 @@ INDICATORS:
             self.load_data(path_or_dataframe)
         
         # Loading model
-        self.load_model(model_name)
+        self.load_model(model_name, model_dir=model_dir)
         
         # Setting X_columns. It will look in self._information['X_columns']
         self.X_columns = None
         
         # Apply custom transformation to data if present in self._information['apply_X']
         for info in self._information['apply_X']:           
-            custom_module = importlib.import_module(f'models.{self.model_name}.custom')
+            custom_module = importlib.import_module(f'{model_dir}.{self.model_name}.custom')
             custom_function = getattr(custom_module, info['function_name'])
             self.X = custom_function(self.X, info['columns'])   
         
+        # Setting ydim and y_columns for predictions
+        self.ydim = 2 if isinstance(self._information['y_columns'], list) else 1
+        predict_cols = [f"predict_{col}" for col in self._information['y_columns']] if self.ydim == 2 else 'predict'
+        predict_proba_cols = [f"predict_proba_{col}" for col in self._information['y_columns']] if self.ydim == 2 else 'predict_proba'
+
+
         # Preprocess self.X
         self.preprocessing()
         
@@ -1117,10 +1124,13 @@ INDICATORS:
         
         # Dataframe with predictions (and predict_proba if available).
         results = pd.DataFrame()
-        results['predict'] = self.model.predict(self.X_scaled)
+        results[predict_cols] = self.model.predict(self.X_scaled)
         if 'predict_proba' in dir(self.model):
-            results['predict_proba'] = self.model.predict_proba(self.X_scaled)[:, 1]
-        
+            if self.ydim == 2:
+                results[predict_proba_cols] = np.concatenate(self.model.predict_proba(self.X_scaled), axis=1)[:, 1::2]
+            else:
+                results[predict_proba_cols] = self.model.predict_proba(self.X_scaled)[:, 1]
+
         # Add column(s) to predictions if needed. Used for indexing mostly.
         if other_cols and all(item in self.df.columns for item in other_cols):
             for col in other_cols:
@@ -1131,7 +1141,7 @@ INDICATORS:
             results.to_csv(os.path.join(self.model_path, 'results.csv'), index=False)
         return results
 
-    def load_model(self, model_name: str):
+    def load_model(self, model_name: str, model_dir='models'):
         '''
         *** For prediction ONLY ***
 
@@ -1148,7 +1158,7 @@ INDICATORS:
         
         # Setting model name and path.
         self.model_name = model_name
-        self.model_path = os.path.join(os.getcwd(), 'models', self.model_name)
+        self.model_path = os.path.join(os.getcwd(), model_dir, self.model_name)
         
         # Load model and scalers
         self.model = load(os.path.join(self.model_path, 'model.joblib'))
