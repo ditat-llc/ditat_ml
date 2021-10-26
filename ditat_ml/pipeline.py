@@ -1124,7 +1124,8 @@ INDICATORS:
         
         # Dataframe with predictions (and predict_proba if available).
         results = pd.DataFrame()
-        results[predict_cols] = self.model.predict(self.X_scaled)
+        results[predict_cols] = pd.DataFrame(self.model.predict(self.X_scaled))
+        
         if 'predict_proba' in dir(self.model):
             if self.ydim == 2:
                 results[predict_proba_cols] = np.concatenate(self.model.predict_proba(self.X_scaled), axis=1)[:, 1::2]
