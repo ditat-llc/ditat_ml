@@ -517,6 +517,7 @@ class Pipeline:
         k_folds=5,
         test_size=0.2,
         stratify=True,
+        apply_X=None,
         cat_mapping=None,
         cat_options_mapping=None,
         boolean_mapping=None,
@@ -538,6 +539,10 @@ class Pipeline:
                 You need to pass X_all_but = True in that case.
             - y_columns (str or list): Target variables(s).
             - model: Model to be used. It triggers setter self.model = model.
+            - X_all_but (bool, default=False): Include all columns but the ones
+                specified in X_columns.
+            - apply_X (dict or list(dict), default=None): If provided (list of
+                ) dictionaries with {"function": val, "columns": []}
 
         Pending:
             Learning curves.
@@ -550,6 +555,14 @@ class Pipeline:
         # 2. Setters for features and target(s)
         self.X_columns = X_columns if X_all_but is False else self.df.drop(X_columns, axis=1).columns.tolist()
         self.y_columns = y_columns
+        
+        # apply_x transformations
+        if apply_X:
+            if isinstance(apply_X, dict):
+                apply_X = [apply_X]
+
+            for d in apply_X:
+                self.apply_X(function=d['function'], columns=d['columns'])
 
         # ALL AGGREGATE SCORING
         self.agg_ras_train = []
@@ -564,8 +577,6 @@ class Pipeline:
         self.agg_fi = []
 
         self.agg_df_corr = []
-
-
 
         for k_fold in range(k_folds):
             self.random_state = k_fold
@@ -700,47 +711,6 @@ TP {' ' * (spaces - len(str(cm[1][0]).split('.')[0]))}{cm[1][0] :0.0f} | {cm[1][
             all_fmt_cm_test = ''.join(all_fmt_cm_test)
 
 
-#             analysis = f'''
-# ########################################
-
-# PIPELINE ANALYSIS - DITAT_ML - ditat.io
-
-# Description:
-
-# - Model: {model_str}
-# - KFold: n = {k_folds}
-# - Data shape: {self.df.shape}
-# - Test Size %: {test_size}
-
-# Indicators:
-
-#     - Class False % : {self.y[self.y == 0].shape[0] / self.df.shape[0] :0.2f}
-#     - Class True  % : {self.y[self.y == 1].shape[0] / self.df.shape[0] :0.2f}
-
-#     - Train Score   : {self.avg_train_score.round(4)}
-#     - Test Score    : {self.avg_test_score.round(4)}
-
-#     - Auc Train     : {self.avg_ras_train.round(4)}
-#     - Auc  Test     : {self.avg_ras_test.round(4)}
-
-#     - Avg. Confusion Matrix - Training
-#               {' ' * (spaces - 2)}PN | PP
-#            TN {' ' * (spaces - len(str(self.avg_train_cm[0][0]).split('.')[0]))}{self.avg_train_cm[0][0] :0.0f} | {self.avg_train_cm[0][1] :0.0f}
-#            TP {' ' * (spaces - len(str(self.avg_train_cm[1][0]).split('.')[0]))}{self.avg_train_cm[1][0] :0.0f} | {self.avg_train_cm[1][1] :0.0f}
-
-#     - Avg. Confusion Matrix - Testing
-#               {' ' * (spaces - 2)}PN | PP
-#            TN {' ' * (spaces - len(str(self.avg_test_cm[0][0]).split('.')[0]))}{self.avg_test_cm[0][0] :0.0f} | {self.avg_test_cm[0][1] :0.0f}
-#            TP {' ' * (spaces - len(str(self.avg_test_cm[1][0]).split('.')[0]))}{self.avg_test_cm[1][0] :0.0f} | {self.avg_test_cm[1][1] :0.0f}
-
-#     - Feature Importance (Displaying max. 60 rows)
-# {self.avg_fi.head(60)}
-
-#     - Feature Correlation (th >= {corr_th}) (Displaying max. 60 rows)
-# {self.avg_df_corr.head(60)}
-
-# ########################################
-# '''
             analysis = f'''
 ########################################
 

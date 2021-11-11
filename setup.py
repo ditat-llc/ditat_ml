@@ -3,9 +3,9 @@ from setuptools import setup, find_packages
 
 setup(
 	author='ditat.io',
-	description='Ditat Machine Learning Implementation - New pipeline kfold funcionality',
+	description='Ditat Machine Learning Implementation',
 	name='ditat_ml',
-	version='0.4.2',
+	version='0.4.3',
 	packages=find_packages(include=['ditat_ml', 'ditat_ml.*']),
 	python_requires='>=3.6',
 	install_requires=[
