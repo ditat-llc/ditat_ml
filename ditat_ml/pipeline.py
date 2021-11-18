@@ -9,9 +9,15 @@ from copy import deepcopy
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler #, MinMaxScaler
 from sklearn.utils import class_weight
-from sklearn.metrics import roc_auc_score, confusion_matrix, multilabel_confusion_matrix
+from sklearn.metrics import (
+    roc_auc_score, 
+    confusion_matrix, 
+    multilabel_confusion_matrix,
+    r2_score,
+    mean_squared_error,
+)
 
 from . import utility_functions
 
@@ -110,6 +116,16 @@ class Pipeline:
         
         # Flag to know if X_columns has been set.
         self._X_columns_set = False
+
+        ### UNDER REVIEW ###
+        # Model type
+        self.model_type = 'classification'
+        
+    @property
+    def scoring(self):
+        return 'roc_auc' if self.model_type == 'classification' else 'neg_root_mean_squared_error'
+
+        ##########
 
     def load_data(self, path_or_dataframe: str or pd.DataFrame) -> None:
         '''
@@ -485,7 +501,7 @@ class Pipeline:
         self,
         show_plots=True,
         corr_th=0.8,
-        scoring='roc_auc',
+        scoring=None,
         verbose=True
         ):
         '''
@@ -503,7 +519,7 @@ class Pipeline:
         self._results(
             show_plots,
             corr_th=corr_th,
-            scoring=scoring,
+            scoring=scoring or self.scoring,
             verbose=verbose
         )
 
@@ -524,7 +540,7 @@ class Pipeline:
         continuous_mapping=None,
         verbose=True,
         corr_th=0.8,
-        scoring='roc_auc',
+        scoring=None,
         learning_curve=False
         ):
         '''
@@ -552,6 +568,8 @@ class Pipeline:
         if self._data_loaded is False:
             self.load_data(path_or_dataframe=path_or_dataframe)
 
+        stratify = stratify if self.model_type == 'classification' else False
+
         # 2. Setters for features and target(s)
         self.X_columns = X_columns if X_all_but is False else self.df.drop(X_columns, axis=1).columns.tolist()
         self.y_columns = y_columns
@@ -573,6 +591,12 @@ class Pipeline:
 
         self.agg_train_cm = []
         self.agg_test_cm = []
+
+        self.agg_train_r2_score = []
+        self.agg_test_r2_score = []
+
+        self.agg_train_rsme = []
+        self.agg_test_rsme = []
 
         self.agg_fi = []
 
@@ -606,29 +630,46 @@ class Pipeline:
                 verbose=False
             )
             # Aggregates and averages
-            self.agg_ras_train.append(self.ras_train)
-            self.agg_ras_test.append(self.ras_test)
+            if self.model_type == 'classification':
+                self.agg_ras_train.append(self.ras_train)
+                self.agg_ras_test.append(self.ras_test)
+
+                self.agg_train_cm.append(self.train_cm)
+                self.agg_test_cm.append(self.test_cm)
+                
+            else:
+                self.agg_train_r2_score.append(self.train_r2)
+                self.agg_test_r2_score.append(self.test_r2)
+                                   
+                self.agg_train_rsme.append(self.train_rsme)
+                self.agg_test_rsme.append(self.test_rsme)
+
             self.agg_train_score.append(self.train_score)
             self.agg_test_score.append(self.test_score)
-
-            self.agg_train_cm.append(self.train_cm)
-            self.agg_test_cm.append(self.test_cm)
 
             self.agg_fi.append(self.df_fi.T)
 
             self.agg_df_corr.append(self.df_corr)
 
-        # ROC AUC Scores
-        self.avg_ras_train = np.mean(self.agg_ras_train)
-        self.avg_ras_test = np.mean(self.agg_ras_test)
-
         # Scores
         self.avg_train_score = np.mean(self.agg_train_score)
         self.avg_test_score = np.mean(self.agg_test_score)
 
-        # Confusion Matrices
-        self.avg_train_cm = np.mean(self.agg_train_cm, axis=0).round(0)
-        self.avg_test_cm = np.mean(self.agg_test_cm, axis=0).round(0)
+        if self.model_type == 'classification':
+            # ROC AUC Scores
+            self.avg_ras_train = np.mean(self.agg_ras_train)
+            self.avg_ras_test = np.mean(self.agg_ras_test)
+
+            # Confusion Matrices
+            self.avg_train_cm = np.mean(self.agg_train_cm, axis=0).round(0)
+            self.avg_test_cm = np.mean(self.agg_test_cm, axis=0).round(0)
+
+        else:
+            self.avg_train_r2_score = np.mean(self.agg_train_r2_score)
+            self.avg_test_r2_score = np.mean(self.agg_test_r2_score)
+
+            self.avg_train_rsme = np.mean(self.agg_train_rsme)
+            self.avg_test_rsme = np.mean(self.agg_test_rsme)
 
         # Feature Importances.
         agg_fi_features = self.agg_fi[0].columns
@@ -659,7 +700,7 @@ class Pipeline:
                 estimator=self.model,
                 X=self.X_train_scaled,
                 y=self.y_train,
-                scoring=scoring,
+                scoring=scoring or self.scoring,
                 cv=10,
                 n_jobs=-1,
                 save_path=None
@@ -674,44 +715,46 @@ class Pipeline:
 
             ### !!! Rewrite this part with better var names.
 
-            target_imbalances = []
-            iter_y_cols = self.y_columns if self.ydim == 2 else [self.y_columns]
-            for y_col in iter_y_cols:
-                temp_fix = self.y if self.ydim == 1 else self.y[y_col]
-                val = (temp_fix.value_counts() / self.y.shape[0]).to_dict()
-                fmt = '\n'.join([f"\tClass {i}: {round(j, 4)}" for i, j in val.items()])
-                fmt = f'{y_col}\n{fmt}\n'
-                target_imbalances.append(fmt)
-            target_imbalances = '\n'.join(target_imbalances)
+            if self.model_type == 'classification':
 
-            # Confusion matrix imbalances
-            iter_cm_train = self.avg_train_cm if self.ydim == 2 else [self.avg_train_cm]
-            iter_cm_test = self.avg_test_cm if self.ydim == 2 else [self.avg_test_cm]
+                target_imbalances = []
+                iter_y_cols = self.y_columns if self.ydim == 2 else [self.y_columns]
+                for y_col in iter_y_cols:
+                    temp_fix = self.y if self.ydim == 1 else self.y[y_col]
+                    val = (temp_fix.value_counts() / self.y.shape[0]).to_dict()
+                    fmt = '\n'.join([f"\tClass {i}: {round(j, 4)}" for i, j in val.items()])
+                    fmt = f'{y_col}\n{fmt}\n'
+                    target_imbalances.append(fmt)
+                target_imbalances = '\n'.join(target_imbalances)
 
-            all_fmt_cm_train = []
-            for cm, y_ in zip(iter_cm_train, iter_y_cols):
-                fmt_cm = f'''
+                # Confusion matrix imbalances
+                iter_cm_train = self.avg_train_cm if self.ydim == 2 else [self.avg_train_cm]
+                iter_cm_test = self.avg_test_cm if self.ydim == 2 else [self.avg_test_cm]
+
+                all_fmt_cm_train = []
+                for cm, y_ in zip(iter_cm_train, iter_y_cols):
+                    fmt_cm = f'''
 {y_}
    {' ' * (spaces - 2)}PN | PP
 TN {' ' * (spaces - len(str(cm[0][0]).split('.')[0]))}{cm[0][0] :0.0f} | {cm[0][1] :0.0f}
 TP {' ' * (spaces - len(str(cm[1][0]).split('.')[0]))}{cm[1][0] :0.0f} | {cm[1][1] :0.0f}
            '''
-                all_fmt_cm_train.append(fmt_cm)
-            all_fmt_cm_train = ''.join(all_fmt_cm_train)
+                    all_fmt_cm_train.append(fmt_cm)
+                all_fmt_cm_train = ''.join(all_fmt_cm_train)
 
-            all_fmt_cm_test = []
-            for cm, y_ in zip(iter_cm_test, iter_y_cols):
-                fmt_cm = f'''
+                all_fmt_cm_test = []
+                for cm, y_ in zip(iter_cm_test, iter_y_cols):
+                    fmt_cm = f'''
 {y_}
    {' ' * (spaces - 2)}PN | PP
 TN {' ' * (spaces - len(str(cm[0][0]).split('.')[0]))}{cm[0][0] :0.0f} | {cm[0][1] :0.0f}
 TP {' ' * (spaces - len(str(cm[1][0]).split('.')[0]))}{cm[1][0] :0.0f} | {cm[1][1] :0.0f}
            '''
-                all_fmt_cm_test.append(fmt_cm)
-            all_fmt_cm_test = ''.join(all_fmt_cm_test)
+                    all_fmt_cm_test.append(fmt_cm)
+                all_fmt_cm_test = ''.join(all_fmt_cm_test)
 
 
-            analysis = f'''
+                analysis = f'''
 ########################################
 
 PIPELINE ANALYSIS - DITAT_ML - ditat.io
@@ -758,6 +801,46 @@ INDICATORS:
 
 ########################
 '''
+            else:
+                analysis = f'''
+########################################
+
+PIPELINE ANALYSIS - DITAT_ML - ditat.io
+
+DESCRIPTION:
+
+- Model: {model_str}
+- KFold: n = {k_folds}
+- Data shape: {self.df.shape}
+- Test Size %: {test_size}
+
+
+INDICATORS:
+
+########################
+    Target(s)
+(Pending information about target distribution)
+
+########################
+
+    - rsme Score   : {self.avg_train_rsme.round(4)}
+    - rsme Score    : {self.avg_test_rsme.round(4)}
+
+    - r2 Train    : {self.avg_train_r2_score.round(4)}
+    - r2 Test     : {self.avg_test_r2_score.round(4)}
+
+########################
+
+    - Feature Importance (Displaying max. 60 rows)
+{self.avg_fi.head(60)}
+
+########################
+
+    - Feature Correlation (th >= {corr_th}) (Displaying max. 60 rows)
+{self.avg_df_corr.head(60)}
+
+########################
+'''
             print(analysis)
 
     def _results(
@@ -767,12 +850,15 @@ INDICATORS:
         save_path=None,
         corr_th=0.8,
         verbose=True,
-        scoring='roc_auc',
+        scoring=None,
         cv=5,
         other_cols=None
         ):
         '''
         '''
+        # Scoring depends on self.model_type
+        scoring = scoring or self.scoring
+
         # Mapping variables according to self._deployment
         if self._deployment:
             verbose = False
@@ -837,22 +923,38 @@ INDICATORS:
 
             # Verbose scores
             if verbose:
-                print('Score Train', round(self.train_score, 4))
-                print('Score Test', round(self.test_score, 4))
+                print(f'Score Train {round(self.train_score, 4)}')
+                print(f'Score Test {round(self.test_score, 4)}')
             
-            # Confusion matrices
-            if self.ydim == 1:
-                self.train_cm = confusion_matrix(self.y_train, self.train_results[train_predict_cols])
-                self.test_cm = confusion_matrix(self.y_test, self.test_results[test_predict_cols])
-            
-            else:
-                self.train_cm = multilabel_confusion_matrix(self.y_train, self.train_results[train_predict_cols])
-                self.test_cm = multilabel_confusion_matrix(self.y_test, self.test_results[test_predict_cols])
+            if self.model_type == 'classification':
+                # Confusion matrices
+                if self.ydim == 1:
+                    self.train_cm = confusion_matrix(self.y_train, self.train_results[train_predict_cols])
+                    self.test_cm = confusion_matrix(self.y_test, self.test_results[test_predict_cols])
+                
+                else:
+                    self.train_cm = multilabel_confusion_matrix(self.y_train, self.train_results[train_predict_cols])
+                    self.test_cm = multilabel_confusion_matrix(self.y_test, self.test_results[test_predict_cols])
 
-            # Verbose confusion matrices
-            if verbose:
-                print('Train\n', self.train_cm)
-                print('Test\n', self.test_cm)
+                # Verbose confusion matrices
+                if verbose:
+                    print('Train\n', self.train_cm)
+                    print('Test\n', self.test_cm)
+
+            else:
+                # Only one output supported for now
+                self.train_r2 = r2_score(self.y_train, self.train_results[train_predict_cols])
+                self.test_r2 = r2_score(self.y_test, self.test_results[test_predict_cols])
+
+                self.train_rsme = mean_squared_error(self.y_train, self.train_results[train_predict_cols], squared=False)
+                self.test_rsme = mean_squared_error(self.y_test, self.test_results[test_predict_cols], squared=False)
+
+                if verbose:
+                    print(f'Train r2 Score {round(self.train_r2, 4)}')
+                    print(f'Test r2 Score {round(self.test_r2, 4)}')
+
+                    print(f'Train rsme Score {round(self.train_rsme, 4)}')
+                    print(f'Test rsme Score {round(self.test_rsme, 4)}')
             
             # If predict_proba is a method of self.model
             if 'predict_proba' in dir(self.model):
@@ -888,7 +990,6 @@ INDICATORS:
                 predict_proba_cols = [f'predict_proba_{i}' for i in self.y_columns]
 
                 self.full_results[[f'y_{i}' for i in self.y_columns]] = self.y
-
             
             self.full_results[predict_cols] = self.model.predict(self.X_scaled)
             
@@ -897,6 +998,16 @@ INDICATORS:
 
             if verbose:
                 print('Score Full', round(self.full_score, 4))
+
+
+            if self.model_type == 'regression':
+                self.full_r2 = r2_score(self.y, self.full_results[predict_cols]) 
+                self.full_rsme = mean_squared_error(self.y, self.full_results[predict_cols], squared=False)
+
+                if verbose:
+                    print(f'r2 Score Full {round(self.full_score, 4)}')
+                    print(f'rsme Score Full {round(self.full_score, 4)}')
+                    
             
             # If predict_proba is a method of 
             if 'predict_proba' in dir(self.model):
@@ -932,13 +1043,13 @@ INDICATORS:
         # Learning Curve
         if show_plots:
             plot1 = utility_functions.plot_learning_curve(
-              estimator=self.model,
-              X=X_,
-              y=y_,
-              scoring=scoring,
-              estimator_name='estimator',
-              cv=cv,
-              save_path=save_path
+                estimator=self.model,
+                X=X_,
+                y=y_,
+                scoring=scoring,
+                estimator_name='estimator',
+                cv=cv,
+                save_path=save_path
             )
             if not self._deployment:
                 plot1.show()
@@ -981,6 +1092,9 @@ INDICATORS:
         # Save attributes.
         self.model_name = name
         self._information['model_name'] = self.model_name
+
+        self._information['model_type'] = self.model_type
+
         self.model_path = os.path.join(os.getcwd(), directory, self.model_name)
         if add_date_to_save_path:
             self.model_path += f"_{self._information['date']}"

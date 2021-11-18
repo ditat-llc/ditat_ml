@@ -597,7 +597,6 @@ def plot_learning_curve(
 
     scoring = scoring if scoring in SCORERS.keys() else 'accuracy'
 
-
     train_sizes, train_scores, test_scores = learning_curve(
         estimator=estimator,
         X=X,
