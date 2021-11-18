@@ -5,11 +5,11 @@ For further information visit [ditat.io](https://ditat.io)
 
 ## Installation (and updates)
 ```bash
-pip install git+https://github.com/ditat-llc/ditat_ml.git (--upgrade)
+pip install git+https://github.com/ditat-llc/ditat_ml.git --upgrade
 ```
 Using ssh
 ```bash
-pip install git+ssh://git@github.com/ditat-llc/ditat_ml.git (--upgrade)
+pip install git+ssh://git@github.com/ditat-llc/ditat_ml.git --upgrade
 ```
 The other option is to clone the repo and install it locally.
 ```bash
