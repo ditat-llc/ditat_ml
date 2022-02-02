@@ -17,6 +17,7 @@ from sklearn.metrics import (
     multilabel_confusion_matrix,
     r2_score,
     mean_squared_error,
+    f1_score
 )
 
 from . import utility_functions
@@ -586,6 +587,9 @@ class Pipeline:
         self.agg_ras_train = []
         self.agg_ras_test = []
 
+        self.agg_f1_train = []
+        self.agg_f1_test = []
+
         self.agg_train_score = []
         self.agg_test_score = []
 
@@ -634,6 +638,9 @@ class Pipeline:
                 self.agg_ras_train.append(self.ras_train)
                 self.agg_ras_test.append(self.ras_test)
 
+                self.agg_f1_train.append(self.f1_train)
+                self.agg_f1_test.append(self.f1_test)
+
                 self.agg_train_cm.append(self.train_cm)
                 self.agg_test_cm.append(self.test_cm)
                 
@@ -659,6 +666,10 @@ class Pipeline:
             # ROC AUC Scores
             self.avg_ras_train = np.mean(self.agg_ras_train)
             self.avg_ras_test = np.mean(self.agg_ras_test)
+
+            # F1 Scores
+            self.avg_f1_train = np.mean(self.agg_f1_train)
+            self.avg_f1_test = np.mean(self.agg_f1_test)
 
             # Confusion Matrices
             self.avg_train_cm = np.mean(self.agg_train_cm, axis=0).round(0)
@@ -706,6 +717,21 @@ class Pipeline:
                 save_path=None
             )
             lc.show()
+
+            if self.model_type == 'classification' and self.ydim == 1:
+                roc_curve = utility_functions.plot_roc_curve(
+                    y=self.train_results['y_train'],
+                    predict_proba=self.train_results['train_predict_proba'],
+                    save_path=None,
+                )
+                roc_curve.show()
+
+                if self.ydim == 1:
+                    pc_curve = utility_functions.plot_precision_recall_curve(
+                        y=self.train_results['y_train'],
+                        predict_proba=self.train_results['train_predict_proba'],
+                    )
+                    pc_curve.show()
 
         if verbose:
             spaces = 5
@@ -780,6 +806,9 @@ INDICATORS:
 
     - Auc Train     : {self.avg_ras_train.round(4)}
     - Auc  Test     : {self.avg_ras_test.round(4)}
+
+    - F1 Train      : {self.avg_f1_train.round(4)}
+    - F1  Test      : {self.avg_f1_test.round(4)}
 
 ########################
     Confusion Matrix:
@@ -972,11 +1001,23 @@ INDICATORS:
                 # Creating Roc Auc Scores as attributes for both sets.
                 self.ras_train = roc_auc_score(self.y_train, self.train_results[train_predict_proba_cols])
                 self.ras_test = roc_auc_score(self.y_test, self.test_results[test_predict_proba_cols])
+
+                if self.ydim == 1:
+                    self.f1_train = f1_score(self.y_train, self.train_results[train_predict_cols])
+                    self.f1_test = f1_score(self.y_test, self.test_results[test_predict_cols])
+
+                else:
+                    self.f1_train = 0.
+                    self.f1_test = 0.
                 
                 # Verbose AUC
                 if verbose:
                     print(f"Roc Auc score Training: {round(self.ras_train, 4)}")
                     print(f"Roc Auc score Testing: {round(self.ras_test, 4)}")
+
+                    print(f"F1 score Training: {round(self.f1_train, 4)}")
+                    print(f"F1 score Testing: {round(self.f1_test, 4)}")
+
         else:
             # Similar to the previous if, but for self._deployment == True
             if self.ydim == 1:
@@ -999,7 +1040,6 @@ INDICATORS:
             if verbose:
                 print('Score Full', round(self.full_score, 4))
 
-
             if self.model_type == 'regression':
                 self.full_r2 = r2_score(self.y, self.full_results[predict_cols]) 
                 self.full_rsme = mean_squared_error(self.y, self.full_results[predict_cols], squared=False)
@@ -1007,7 +1047,6 @@ INDICATORS:
                 if verbose:
                     print(f'r2 Score Full {round(self.full_score, 4)}')
                     print(f'rsme Score Full {round(self.full_score, 4)}')
-                    
             
             # If predict_proba is a method of 
             if 'predict_proba' in dir(self.model):
@@ -1019,9 +1058,15 @@ INDICATORS:
                     self.full_results[predict_proba_cols] = np.concatenate(self.model.predict_proba(self.X_scaled), axis=1)[:, 1::2]
 
                 self.ras_full = roc_auc_score(self.y, self.full_results[predict_proba_cols])
+
+                if self.ydim == 1:
+                    self.f1_full = f1_score(self.y, self.full_results[predict_cols])
+                else:
+                    self.f1_full = 0.
                 
                 if verbose:
                     print(f"Roc Auc score Full: {round(self.ras_full, 4)}")
+                    print(f"F1 score Full: {round(self.f1_full, 4)}")
             
             # Add extra columns if needed
             if other_cols and all(item in self.df.columns for item in other_cols):
@@ -1053,6 +1098,24 @@ INDICATORS:
             )
             if not self._deployment:
                 plot1.show()
+
+            if self.model_type == 'classification' and self.ydim == 1:
+                roc_curve = utility_functions.plot_roc_curve(
+                    y=y_,
+                    predict_proba=self.model.predict_proba(X_)[:, 1],
+                    save_path=save_path
+                )
+                if not self._deployment:
+                    roc_curve.show()
+
+                if self.ydim == 1:
+                    pc_curve = utility_functions.plot_precision_recall_curve(
+                        y=y_,
+                        predict_proba=self.model.predict_proba(X_)[:, 1],
+                        save_path=save_path
+                    )
+                    if not self._deployment:
+                        pc_curve.show()
 
     def deploy(
         self,

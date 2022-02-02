@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import learning_curve
 from sklearn.metrics import SCORERS
 from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.metrics import roc_curve
+from sklearn.metrics import precision_recall_curve
 
 
 
@@ -637,6 +639,58 @@ def plot_learning_curve(
         plt.savefig(path)
 
     return plt
+
+
+def plot_roc_curve(y, predict_proba, save_path=None):
+    plt.figure().clear()
+
+    ns_probs = [0 for _ in range(len(y))]
+    
+    ns_fpr, ns_tpr, _ = roc_curve(y, ns_probs, drop_intermediate=True)
+    lr_fpr, lr_tpr, _ = roc_curve(y, predict_proba, drop_intermediate=True)
+
+    # plot the roc curve for the model
+    plt.plot(ns_fpr, ns_tpr, linestyle='--')
+    plt.plot(lr_fpr, lr_tpr, marker='.', label='Model')
+
+    # axis labels
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+
+    # show the legend
+    plt.legend()
+
+    if save_path:
+        path = os.path.join(save_path, f'roc_curve.png')
+        plt.savefig(path)
+
+    return plt
+
+
+def plot_precision_recall_curve(y, predict_proba, save_path=None):
+    plt.figure().clear()
+
+    lr_precision, lr_recall, _ = precision_recall_curve(y, predict_proba)
+
+    # plot the precision-recall curves
+    no_skill = len(y[y == 1]) / len(y)
+    plt.plot([0, 1], [no_skill, no_skill], linestyle='--')
+
+    plt.plot(lr_recall, lr_precision, marker='.', label='Model')
+
+    # axis labels
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+
+    # show the legend
+    plt.legend()
+
+    if save_path:
+        path = os.path.join(save_path, f'precision_recall_curve.png')
+        plt.savefig(path)
+
+    return plt
+
 
 
 # def clean_columns(cols_or_df: str or list or pd.DataFrame) -> str or list or pd.DataFrame:
