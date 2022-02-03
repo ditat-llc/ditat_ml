@@ -74,7 +74,7 @@ class Pipeline:
     # Set to None to try different values (cross validation)
     RANDOM_STATE = 4
 
-    def __init__(self, nrows=None, random_state=-1):
+    def __init__(self, nrows=None, random_state=-1, threshold=0.5):
         '''
         Args:
             nrows (int, default=None): Used in self.load_data()
@@ -83,9 +83,12 @@ class Pipeline:
                 It has to be set to None when you want to train on the whole dataset.
             random_state (int, default=-1): The actual default os set to cls.RANDOM_STATE.
                 We actually want the option of None for randomness, so we use a proxy -1.
+            threshold (float, default=0.5): Only for self.model_type = 'classification'
         '''
         self.nrows = nrows
         self.random_state = type(self).RANDOM_STATE if random_state == -1 else random_state
+
+        self.threshold = threshold
         
         # Property for self.model
         self._model = None
@@ -925,13 +928,32 @@ INDICATORS:
                 test_predict_proba_cols = 'test_predict_proba'
 
                 self.train_results['y_train'] = self.y_train
-                self.train_results['train_predict'] = self.model.predict(self.X_train_scaled)
+
+                if self.model_type == 'classification':
+                    self.train_results['train_predict'] = np.where(
+                        self.model.predict_proba(self.X_train_scaled)[:, 1] >= self.threshold,
+                        1.0,
+                        0.0
+                    )
+                else:
+                    self.train_results['train_predict'] = self.model.predict(self.X_train_scaled)
             
                 self.test_results['y_test'] = self.y_test
-                self.test_results['test_predict'] = self.model.predict(self.X_test_scaled)
 
+                if self.model_type == 'classification':
+                    self.test_results['test_predict'] = np.where(
+                        self.model.predict_proba(self.X_test_scaled)[:, 1] >= self.threshold,
+                        1.0,
+                        0.0
+                    )
+                else:
+                    self.test_results['test_predict'] = self.model.predict(self.X_test_scaled)
 
             else:
+                '''
+                Pending, predict with self.threshold when self.ydim > 1
+                '''
+
                 train_predict_cols = [f'train_predict_{i}' for i in self.y_columns]
                 test_predict_cols = [f'test_predict_{i}' for i in self.y_columns]
 
@@ -1032,7 +1054,14 @@ INDICATORS:
 
                 self.full_results[[f'y_{i}' for i in self.y_columns]] = self.y
             
-            self.full_results[predict_cols] = self.model.predict(self.X_scaled)
+            if self.model_type == 'classification' and self.ydim == 1:
+                self.full_results[predict_cols] = np.where(
+                    self.model.predict_proba(self.X_scaled)[:, 1] > self.threshold,
+                    1.0,
+                    0.0
+                )
+            else:
+                self.full_results[predict_cols] = self.model.predict(self.X_scaled)
             
             # Accuracy score as attribute.
             self.full_score = self.model.score(self.X_scaled, self.y)
@@ -1275,7 +1304,14 @@ INDICATORS:
         if self.ydim == 2:
             results[predict_cols] = pd.DataFrame(self.model.predict(self.X_scaled))
         else:
-            results[predict_cols] = self.model.predict(self.X_scaled)
+            if self.model_type == 'classification':
+                results[predict_cols] = np.where(
+                    self.model.predict_proba(self.X_)[:, 1] >= self.threshold,
+                    1.0,
+                    0.0
+                )
+            else:
+                results[predict_cols] = self.model.predict(self.X_scaled)
         
         if 'predict_proba' in dir(self.model):
             if self.ydim == 2:
