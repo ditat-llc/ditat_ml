@@ -1339,7 +1339,7 @@ INDICATORS:
         else:
             if self.model_type == 'classification':
                 results[predict_cols] = np.where(
-                    self.model.predict_proba(self.X_)[:, 1] >= self.threshold,
+                    self.model.predict_proba(self.X_scaled)[:, 1] >= self.threshold,
                     1.0,
                     0.0
                 )
