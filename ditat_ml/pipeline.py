@@ -17,7 +17,9 @@ from sklearn.metrics import (
     multilabel_confusion_matrix,
     r2_score,
     mean_squared_error,
-    f1_score
+    f1_score,
+    auc,
+    precision_recall_curve
 )
 
 from . import utility_functions
@@ -593,6 +595,9 @@ class Pipeline:
         self.agg_f1_train = []
         self.agg_f1_test = []
 
+        self.agg_pcas_train = []
+        self.agg_pcas_test = []
+
         self.agg_train_score = []
         self.agg_test_score = []
 
@@ -644,6 +649,9 @@ class Pipeline:
                 self.agg_f1_train.append(self.f1_train)
                 self.agg_f1_test.append(self.f1_test)
 
+                self.agg_pcas_train.append(self.pcas_train)
+                self.agg_pcas_test.append(self.pcas_test)
+
                 self.agg_train_cm.append(self.train_cm)
                 self.agg_test_cm.append(self.test_cm)
                 
@@ -673,6 +681,10 @@ class Pipeline:
             # F1 Scores
             self.avg_f1_train = np.mean(self.agg_f1_train)
             self.avg_f1_test = np.mean(self.agg_f1_test)
+
+            # Precision Recall AUC
+            self.avg_pcas_train = np.mean(self.agg_pcas_train)
+            self.avg_pcas_test = np.mean(self.agg_pcas_test)
 
             # Confusion Matrices
             self.avg_train_cm = np.mean(self.agg_train_cm, axis=0).round(0)
@@ -812,6 +824,9 @@ INDICATORS:
 
     - F1 Train      : {self.avg_f1_train.round(4)}
     - F1  Test      : {self.avg_f1_test.round(4)}
+
+    - PCAS Train    : {self.avg_pcas_train.round(4)}
+    - PCAS  Test    : {self.avg_pcas_test.round(4)}
 
 ########################
     Confusion Matrix:
@@ -1028,10 +1043,19 @@ INDICATORS:
                     self.f1_train = f1_score(self.y_train, self.train_results[train_predict_cols])
                     self.f1_test = f1_score(self.y_test, self.test_results[test_predict_cols])
 
+                    precision, recall, _ = precision_recall_curve(self.y_train, self.train_results[train_predict_proba_cols])
+                    self.pcas_train = auc(recall, precision)
+
+                    precision, recall, _ = precision_recall_curve(self.y_test, self.test_results[test_predict_proba_cols])
+                    self.pcas_test = auc(recall, precision)
+
                 else:
                     self.f1_train = 0.
                     self.f1_test = 0.
-                
+
+                    self.pcas_train = 0
+                    self.pcas_test = 0 
+
                 # Verbose AUC
                 if verbose:
                     print(f"Roc Auc score Training: {round(self.ras_train, 4)}")
@@ -1039,6 +1063,9 @@ INDICATORS:
 
                     print(f"F1 score Training: {round(self.f1_train, 4)}")
                     print(f"F1 score Testing: {round(self.f1_test, 4)}")
+
+                    print(f"Precision Recall Auc score Training: {round(self.pcas_train, 4)}")
+                    print(f"Precision Recall Auc score Testing: {round(self.pcas_test, 4)}")
 
         else:
             # Similar to the previous if, but for self._deployment == True
@@ -1090,12 +1117,18 @@ INDICATORS:
 
                 if self.ydim == 1:
                     self.f1_full = f1_score(self.y, self.full_results[predict_cols])
+
+                    precision, recall, _ = precision_recall_curve(self.y, self.full_results[predict_proba_cols])
+                    self.pcas_full = auc(recall, precision)
                 else:
                     self.f1_full = 0.
+
+                    self.pcas_full = 0.
                 
                 if verbose:
                     print(f"Roc Auc score Full: {round(self.ras_full, 4)}")
                     print(f"F1 score Full: {round(self.f1_full, 4)}")
+                    print(f"Precision Recall AUC score Full: {round(self.pcas_full, 4)}")
             
             # Add extra columns if needed
             if other_cols and all(item in self.df.columns for item in other_cols):
