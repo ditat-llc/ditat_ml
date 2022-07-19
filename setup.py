@@ -1,5 +1,6 @@
 from setuptools import setup, find_packages
-from ditat_ml import __version__
+
+__version__ = '0.7' 
 
 
 with open('README.md', 'r') as f:

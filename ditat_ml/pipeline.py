@@ -547,7 +547,8 @@ class Pipeline:
         verbose=True,
         corr_th=0.8,
         scoring=None,
-        learning_curve=False
+        learning_curve=False,
+		save_plots=False,
         ):
         '''
         Easy wrapper to cross-validate using kfold and have more
@@ -636,7 +637,7 @@ class Pipeline:
 
             # 7. Train
             self.train(
-                show_plots=False,
+                show_plots=save_plots,
                 corr_th=0,
                 scoring=scoring,
                 verbose=False
