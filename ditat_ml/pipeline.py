@@ -666,7 +666,8 @@ class Pipeline:
 			self.agg_train_score.append(self.train_score)
 			self.agg_test_score.append(self.test_score)
 
-			self.agg_fi.append(self.df_fi.T)
+			# self.agg_fi.append(self.df_fi.T)
+			self.agg_fi.append(self.df_fi[['feature_importance']])
 
 			self.agg_df_corr.append(self.df_corr)
 
@@ -698,21 +699,20 @@ class Pipeline:
 			self.avg_train_rsme = np.mean(self.agg_train_rsme)
 			self.avg_test_rsme = np.mean(self.agg_test_rsme)
 
-		# Feature Importances.
-		agg_fi_features = self.agg_fi[0].columns
-		agg_fi_columns = self.agg_fi[0].index
+		# Feature Importances
+		agg_fi = pd.concat(self.agg_fi, axis=1)
+		agg_fi.fillna(0, inplace=True)
+		
+		agg_fi[f"feature_importance_mean"] = agg_fi[['feature_importance']].mean(axis=1)
 
-		# Temporary fix due to unmatching feature importance.
-		r = []
-		for df in self.agg_fi:
-			try:
-				r.append(df[agg_fi_features].T)
-			except:
-				pass
-		self.agg_fi = r.copy()
-		# self.agg_fi = [df[agg_fi_features].T for df in self.agg_fi]
-		self.avg_fi = pd.DataFrame(index=agg_fi_features, columns=agg_fi_columns, data=np.mean(self.agg_fi, axis=0))
-		self.avg_fi.sort_values(by='feature_importance', ascending=False, inplace=True)
+		agg_fi = agg_fi[['feature_importance_mean']]
+		agg_fi.columns = ['feature_importance']
+
+		agg_fi.sort_values(by='feature_importance', ascending=False, inplace=True)
+
+		agg_fi ['cum_fi'] = agg_fi['feature_importance'].cumsum()
+
+		self.avg_fi = agg_fi
 
 		# Correlation Matrix.
 		self.avg_df_corr = pd.concat(self.agg_df_corr, axis=0).groupby(['column_1', 'column_2']).mean().reset_index()
