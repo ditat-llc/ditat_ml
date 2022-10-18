@@ -820,14 +820,14 @@ INDICATORS:
 	- Train Score   : {self.avg_train_score.round(4)}
 	- Test Score	: {self.avg_test_score.round(4)}
 
-	- Auc Train	 : {self.avg_ras_train.round(4)}
-	- Auc  Test	 : {self.avg_ras_test.round(4)}
+	- ROCAUC Train  : {self.avg_ras_train.round(4)}
+	- ROCAUC  Test  : {self.avg_ras_test.round(4)}
 
-	- F1 Train	  : {self.avg_f1_train.round(4)}
-	- F1  Test	  : {self.avg_f1_test.round(4)}
+	- F1 Train  	: {self.avg_f1_train.round(4)}
+	- F1 Test       : {self.avg_f1_test.round(4)}
 
-	- PCAS Train	: {self.avg_pcas_train.round(4)}
-	- PCAS  Test	: {self.avg_pcas_test.round(4)}
+	- PRAUC Train	: {self.avg_pcas_train.round(4)}
+	- PRAUC  Test	: {self.avg_pcas_test.round(4)}
 
 ########################
 	Confusion Matrix:
@@ -872,10 +872,11 @@ INDICATORS:
 ########################
 
 	- rsme Score   : {self.avg_train_rsme.round(4)}
-	- rsme Score	: {self.avg_test_rsme.round(4)}
+	- rsme Score   : {self.avg_test_rsme.round(4)}
 
-	- r2 Train	: {self.avg_train_r2_score.round(4)}
-	- r2 Test	 : {self.avg_test_r2_score.round(4)}
+	- r2 Train     : {self.avg_train_r2_score.round(4)}
+	- r2 Test	   : {self.avg_test_r2_score.round(4)}
+
 
 ########################
 
