@@ -17,7 +17,7 @@ setup(
 	python_requires='>=3.6',
 	install_requires=[
 		'pandas',
-		'sklearn',
+		'scikit-learn',
 		'matplotlib',
 		'fuzzywuzzy[speedup]'
 	]
